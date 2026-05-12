@@ -1,0 +1,27 @@
+@startuml
+title Sequence Diagram - Authentication
+
+actor User
+participant "React Login Page" as Frontend
+participant "Auth API Controller" as Controller
+participant "Auth Service" as Service
+participant "Users Repository" as Repo
+participant "JWT Service" as JWT
+database "PostgreSQL" as DB
+
+User -> Frontend : Enter credentials
+Frontend -> Controller : POST /auth/login
+Controller -> Service : validateCredentials(dto)
+Service -> Repo : findByEmail(email)
+Repo -> DB : SELECT user
+DB --> Repo : user
+Repo --> Service : user
+Service -> Service : compare password hash
+Service -> JWT : create access token
+Service -> JWT : create refresh token
+JWT --> Service : tokens
+Service --> Controller : auth response
+Controller --> Frontend : tokens + user profile
+Frontend --> User : Redirect to dashboard
+
+@enduml

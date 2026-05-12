@@ -1,0 +1,35 @@
+@startuml
+title Sequence Diagram - Assignment Workflow
+
+actor "Resource Manager" as Manager
+participant "React App" as Frontend
+participant "Assignment Controller" as Controller
+participant "Assignment Service" as Service
+participant "Resource Service" as ResourceService
+participant "Notification Service" as NotificationService
+participant "Audit Service" as AuditService
+database "PostgreSQL" as DB
+
+Manager -> Frontend : Select available resource
+Frontend -> Controller : POST /assignments
+Controller -> Service : assignResource(dto)
+Service -> ResourceService : verifyAvailable(resourceId)
+ResourceService -> DB : read resource status
+DB --> ResourceService : AVAILABLE
+Service -> DB : insert assignment ACTIVE
+Service -> ResourceService : markAssigned(resourceId)
+ResourceService -> DB : update resource ASSIGNED
+Service -> NotificationService : notify beneficiary
+Service -> AuditService : log assignment
+Controller --> Frontend : assignment created
+
+Manager -> Frontend : Return resource
+Frontend -> Controller : POST /assignments/{id}/return
+Controller -> Service : returnResource(id, dto)
+Service -> DB : close assignment RETURNED
+Service -> ResourceService : update resource status
+Service -> NotificationService : notify stakeholders
+Service -> AuditService : log return
+Controller --> Frontend : assignment returned
+
+@enduml

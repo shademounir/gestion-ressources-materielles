@@ -1,0 +1,40 @@
+@startuml
+title Sequence Diagram - Maintenance Workflow
+
+actor Teacher
+actor Technician
+participant "React App" as Frontend
+participant "Maintenance Controller" as Controller
+participant "Maintenance Service" as Service
+participant "Resource Service" as ResourceService
+participant "Notification Service" as NotificationService
+participant "Audit Service" as AuditService
+database "PostgreSQL" as DB
+
+Teacher -> Frontend : Report failure
+Frontend -> Controller : POST /maintenance-tickets
+Controller -> Service : createTicket(dto)
+Service -> ResourceService : markResourceMaintenance(resourceId)
+ResourceService -> DB : update resource status
+Service -> DB : insert ticket REPORTED
+Service -> NotificationService : notify responsible users
+Service -> AuditService : log ticket creation
+Controller --> Frontend : ticket created
+
+Technician -> Frontend : Add diagnosis
+Frontend -> Controller : POST /maintenance-tickets/{id}/diagnose
+Controller -> Service : diagnose(ticketId, dto)
+Service -> DB : update ticket DIAGNOSIS
+Service -> AuditService : log diagnosis
+Controller --> Frontend : diagnosis saved
+
+Technician -> Frontend : Close intervention
+Frontend -> Controller : POST /maintenance-tickets/{id}/close
+Controller -> Service : close(ticketId, result)
+Service -> ResourceService : update final resource status
+Service -> DB : update ticket CLOSED
+Service -> NotificationService : notify requester
+Service -> AuditService : log closure
+Controller --> Frontend : ticket closed
+
+@enduml

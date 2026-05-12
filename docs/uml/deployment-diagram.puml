@@ -1,0 +1,33 @@
+@startuml
+title Deployment Diagram - Dev/Staging/Prod Target
+
+node "User Browser" {
+  artifact "React App"
+}
+
+node "Application Host" {
+  node "Frontend Container" {
+    artifact "Static Frontend"
+  }
+
+  node "Backend Container" {
+    artifact "NestJS API"
+  }
+}
+
+node "Database Host" {
+  database "PostgreSQL"
+}
+
+cloud "GitHub" {
+  artifact "Repository"
+  artifact "GitHub Actions"
+}
+
+"User Browser" --> "Frontend Container" : HTTPS
+"Frontend Container" --> "Backend Container" : REST API
+"Backend Container" --> "PostgreSQL" : Prisma / TCP
+"Repository" --> "GitHub Actions" : push / pull request
+"GitHub Actions" --> "Application Host" : deploy
+
+@enduml

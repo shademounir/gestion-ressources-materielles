@@ -1,0 +1,54 @@
+@startuml
+title Component Diagram - Target Architecture
+
+package "Frontend React" {
+  [Pages]
+  [Components]
+  [Auth Store]
+  [API Services]
+  [Permission Guard]
+}
+
+package "Backend NestJS" {
+  [Auth Module]
+  [Users Module]
+  [Departments Module]
+  [Suppliers Module]
+  [Tenders Module]
+  [Resources Module]
+  [Assignments Module]
+  [Maintenance Module]
+  [Notifications Module]
+  [Audit Module]
+  [Common Guards]
+  [Swagger]
+}
+
+database "PostgreSQL" as DB
+component "Prisma ORM" as Prisma
+component "JWT Service" as JWT
+
+[Pages] --> [Components]
+[Pages] --> [Permission Guard]
+[API Services] --> [Auth Module] : REST/HTTPS
+[API Services] --> [Users Module]
+[API Services] --> [Tenders Module]
+[API Services] --> [Resources Module]
+[API Services] --> [Maintenance Module]
+
+[Common Guards] --> JWT
+[Auth Module] --> JWT
+[Users Module] --> Prisma
+[Departments Module] --> Prisma
+[Suppliers Module] --> Prisma
+[Tenders Module] --> Prisma
+[Resources Module] --> Prisma
+[Assignments Module] --> Prisma
+[Maintenance Module] --> Prisma
+[Notifications Module] --> Prisma
+[Audit Module] --> Prisma
+Prisma --> DB
+[Swagger] ..> [Auth Module]
+[Swagger] ..> [Resources Module]
+
+@enduml

@@ -1,0 +1,45 @@
+@startuml
+title Sequence Diagram - Tender Workflow
+
+actor "Resource Manager" as Manager
+actor Supplier
+participant "React App" as Frontend
+participant "Tender Controller" as Controller
+participant "Tender Service" as Service
+participant "Supplier Offer Service" as OfferService
+participant "Notification Service" as NotificationService
+participant "Audit Service" as AuditService
+database "PostgreSQL" as DB
+
+Manager -> Frontend : Create tender
+Frontend -> Controller : POST /tenders
+Controller -> Service : createTender(dto)
+Service -> DB : insert tender DRAFT
+Service -> AuditService : log creation
+Controller --> Frontend : tender draft
+
+Manager -> Frontend : Publish tender
+Frontend -> Controller : POST /tenders/{id}/publish
+Controller -> Service : publishTender(id)
+Service -> DB : update status PUBLISHED
+Service -> NotificationService : notify suppliers
+Service -> AuditService : log publication
+Controller --> Frontend : tender published
+
+Supplier -> Frontend : Submit offer
+Frontend -> Controller : POST /tenders/{id}/offers
+Controller -> OfferService : submitOffer(dto)
+OfferService -> DB : insert supplier offer
+OfferService -> AuditService : log offer submission
+Controller --> Frontend : offer submitted
+
+Manager -> Frontend : Select offer
+Frontend -> Controller : POST /tenders/{id}/award
+Controller -> Service : awardTender(tenderId, offerId)
+Service -> DB : mark selected offer
+Service -> DB : update tender AWARDED
+Service -> NotificationService : notify selected supplier
+Service -> AuditService : log award
+Controller --> Frontend : tender awarded
+
+@enduml

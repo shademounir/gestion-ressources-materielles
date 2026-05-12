@@ -1,0 +1,50 @@
+@startuml
+title Package Diagram - Backend Modular Architecture
+
+package "common" {
+  package "guards"
+  package "decorators"
+  package "filters"
+  package "pipes"
+}
+
+package "config"
+package "prisma"
+
+package "modules" {
+  package "auth"
+  package "users"
+  package "departments"
+  package "suppliers"
+  package "tenders"
+  package "resources"
+  package "assignments"
+  package "maintenance"
+  package "notifications"
+  package "audit"
+}
+
+auth --> users
+auth --> common
+users --> prisma
+departments --> prisma
+suppliers --> prisma
+tenders --> suppliers
+tenders --> departments
+tenders --> prisma
+resources --> suppliers
+resources --> prisma
+assignments --> resources
+assignments --> users
+assignments --> departments
+maintenance --> resources
+maintenance --> suppliers
+maintenance --> users
+notifications --> users
+audit --> users
+
+modules ..> common
+modules ..> config
+modules ..> prisma
+
+@enduml

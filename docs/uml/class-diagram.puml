@@ -1,0 +1,115 @@
+@startuml
+title Class Diagram - Gestion des Ressources Materielles
+
+class User {
+  +id: UUID
+  +email: string
+  +passwordHash: string
+  +firstName: string
+  +lastName: string
+  +status: UserStatus
+}
+
+class Role {
+  +id: UUID
+  +name: string
+  +permissions: string[]
+}
+
+class Department {
+  +id: UUID
+  +name: string
+  +status: DepartmentStatus
+}
+
+class Supplier {
+  +id: UUID
+  +name: string
+  +contactEmail: string
+  +status: SupplierStatus
+}
+
+class Tender {
+  +id: UUID
+  +reference: string
+  +title: string
+  +status: TenderStatus
+  +deadline: DateTime
+}
+
+class SupplierOffer {
+  +id: UUID
+  +amount: Decimal
+  +deliveryDelay: string
+  +warranty: string
+  +status: OfferStatus
+}
+
+class Resource {
+  +id: UUID
+  +inventoryCode: string
+  +name: string
+  +category: string
+  +status: ResourceStatus
+  +location: string
+}
+
+class Assignment {
+  +id: UUID
+  +status: AssignmentStatus
+  +assignedAt: DateTime
+  +returnedAt: DateTime
+}
+
+class MaintenanceTicket {
+  +id: UUID
+  +status: MaintenanceTicketStatus
+  +priority: Priority
+  +description: string
+  +diagnosis: string
+  +decision: string
+}
+
+class MaintenanceIntervention {
+  +id: UUID
+  +type: InterventionType
+  +status: InterventionStatus
+  +startedAt: DateTime
+  +endedAt: DateTime
+}
+
+class Notification {
+  +id: UUID
+  +type: NotificationType
+  +title: string
+  +message: string
+  +status: NotificationStatus
+}
+
+class AuditLog {
+  +id: UUID
+  +action: string
+  +targetType: string
+  +targetId: UUID
+  +metadata: JSON
+  +createdAt: DateTime
+}
+
+Role "1" -- "0..*" User
+Department "1" -- "0..*" User
+Department "1" -- "0..*" Tender
+Supplier "1" -- "0..*" SupplierOffer
+Tender "1" -- "0..*" SupplierOffer
+Tender "0..1" -- "0..1" SupplierOffer : selected
+Supplier "1" -- "0..*" Resource
+Resource "1" -- "0..*" Assignment
+User "0..1" -- "0..*" Assignment
+Department "0..1" -- "0..*" Assignment
+Resource "1" -- "0..*" MaintenanceTicket
+User "1" -- "0..*" MaintenanceTicket : reports
+MaintenanceTicket "1" -- "0..*" MaintenanceIntervention
+User "0..1" -- "0..*" MaintenanceIntervention : technician
+User "1" -- "0..*" Notification
+User "0..1" -- "0..*" AuditLog : actor
+
+@enduml
