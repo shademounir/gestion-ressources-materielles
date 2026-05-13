@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -57,6 +58,10 @@ export class AuthController {
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('rbac-foundation')
+  @ApiOperation({ summary: 'Verifier la protection RBAC admin' })
+  @ApiOkResponse({ description: 'Acces autorise pour un utilisateur admin' })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour acceder a la ressource' })
   rbacFoundation() {
     return {
       message: 'RBAC foundation is active.',
