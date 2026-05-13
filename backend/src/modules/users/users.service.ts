@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -59,6 +59,37 @@ export class UsersService {
       role: createdUser.role.name as UserRole,
       isActive: createdUser.status === UserStatus.ACTIVE,
       createdAt: createdUser.createdAt.toISOString(),
+    };
+  }
+
+  async deactivateUser(id: string): Promise<UserResponseDto> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (!existingUser || existingUser.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    const deactivatedUser = await this.prisma.user.update({
+      where: { id },
+      data: {
+        status: UserStatus.INACTIVE,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    return {
+      id: deactivatedUser.id,
+      firstName: deactivatedUser.firstName,
+      lastName: deactivatedUser.lastName,
+      email: deactivatedUser.email,
+      role: deactivatedUser.role.name as UserRole,
+      isActive: false,
+      createdAt: deactivatedUser.createdAt.toISOString(),
     };
   }
 }

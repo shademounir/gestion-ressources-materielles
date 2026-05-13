@@ -50,4 +50,44 @@ describe('UsersController', () => {
 
     expect(metadata).toEqual([UserRole.ADMIN]);
   });
+
+  it('delegates user deactivation to UsersService', async () => {
+    const userResponse: UserResponseDto = {
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      role: UserRole.USER,
+      isActive: false,
+      createdAt: '2026-05-13T15:30:00.000Z',
+    };
+    const deactivateUserMock = jest.fn().mockResolvedValue(userResponse);
+    const usersService = {
+      deactivateUser: deactivateUserMock,
+      createUser: jest.fn(),
+      getFoundationStatus: jest.fn(),
+    } as unknown as UsersService;
+    const controller = new UsersController(usersService);
+
+    const result = await controller.deactivate('user-1');
+
+    expect(deactivateUserMock).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(userResponse);
+  });
+
+  it('requires ADMIN role on the deactivate endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      UsersController.prototype,
+      'deactivate',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected deactivate handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN]);
+  });
 });

@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { RoleName, UserStatus } from '@prisma/client';
 import { compare } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -10,6 +10,7 @@ type PrismaMock = {
   user: {
     findUnique: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
   };
   role: {
     upsert: jest.Mock;
@@ -36,6 +37,7 @@ describe('UsersService', () => {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       role: {
         upsert: jest.fn(),
@@ -149,5 +151,65 @@ describe('UsersService', () => {
     ).rejects.toThrow(new ConflictException('Un utilisateur avec cet email existe deja.'));
     expect(prisma.role.upsert).not.toHaveBeenCalled();
     expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('deactivates an existing user without deleting it', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: null,
+    });
+    prisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      status: UserStatus.INACTIVE,
+      createdAt: new Date('2026-05-13T15:30:00.000Z'),
+      role: {
+        name: RoleName.USER,
+      },
+    });
+
+    const result = await service.deactivateUser('user-1');
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      select: { id: true, deletedAt: true },
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { status: UserStatus.INACTIVE },
+      include: { role: true },
+    });
+    expect(result).toEqual({
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      role: UserRole.USER,
+      isActive: false,
+      createdAt: '2026-05-13T15:30:00.000Z',
+    });
+  });
+
+  it('rejects deactivation when the user does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.deactivateUser('missing-user')).rejects.toThrow(
+      new NotFoundException('Utilisateur introuvable.'),
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects deactivation when the user is already logically deleted', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: new Date('2026-05-13T15:30:00.000Z'),
+    });
+
+    await expect(service.deactivateUser('user-1')).rejects.toThrow(
+      new NotFoundException('Utilisateur introuvable.'),
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
