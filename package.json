@@ -1,0 +1,45 @@
+{
+  "name": "gestion-ressources-materielles",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm run lint --workspace backend && npm run lint --workspace frontend",
+    "test": "npm run test --workspace backend && npm run test --workspace frontend",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "typecheck": "npm run typecheck --workspace backend && npm run typecheck --workspace frontend"
+  },
+  "devDependencies": {
+    "@nestjs/common": "11.1.20",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
+    "prettier": "^3.4.2"
+  },
+  "overrides": {
+    "@nestjs/common": "11.1.20",
+    "@nestjs/core": "11.1.20",
+    "@nestjs/platform-express": "11.1.20",
+    "lodash": "4.18.1",
+    "js-yaml": "4.1.1",
+    "node-emoji": {
+      "lodash": "4.18.1"
+    }
+  },
+  "lint-staged": {
+    "backend/**/*.{ts,js}": [
+      "npm run lint --workspace backend"
+    ],
+    "frontend/**/*.{ts,tsx,js,jsx}": [
+      "npm run lint --workspace frontend"
+    ],
+    "*.{md,json,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

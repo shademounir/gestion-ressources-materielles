@@ -24,9 +24,22 @@ dist/
 build/
 coverage/
 target/
+.turbo/
+.vite/
+.cache/
 
 # Temporary files
 tmp/
 temp/
 *.tmp
 *.bak
+*.tsbuildinfo
+
+# Environment files
+.env.local
+.env.development
+.env.staging
+.env.production
+
+# Prisma
+backend/prisma/migrations/dev.db*
