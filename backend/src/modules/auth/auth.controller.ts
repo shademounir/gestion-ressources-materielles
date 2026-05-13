@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -13,6 +13,8 @@ import { UserRole } from '../../shared/enums/user-role.enum';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { LogoutResponseDto } from './dto/logout-response.dto';
+import { AuthenticatedRequest } from './interfaces/authenticated-user.interface';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -30,6 +32,16 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Identifiants invalides ou compte non actif' })
   login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(loginDto);
+  }
+
+  @Post('logout')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Deconnecter l utilisateur authentifie' })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  logout(@Req() request: AuthenticatedRequest): LogoutResponseDto {
+    return this.authService.logout(request.user);
   }
 
   @ApiBearerAuth()
