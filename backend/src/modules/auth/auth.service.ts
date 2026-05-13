@@ -7,6 +7,8 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { LogoutResponseDto } from './dto/logout-response.dto';
+import { AuthenticatedUser } from './interfaces/authenticated-user.interface';
 
 @Injectable()
 export class AuthService {
@@ -71,6 +73,19 @@ export class AuthService {
         lastName: user.lastName,
         role,
       },
+    };
+  }
+
+  logout(user: AuthenticatedUser | undefined): LogoutResponseDto {
+    if (!user?.userId) {
+      throw new UnauthorizedException('Utilisateur non authentifie.');
+    }
+
+    return {
+      message: 'Deconnexion effectuee.',
+      loggedOutAt: new Date().toISOString(),
+      sessionState: 'CLIENT_CONTEXT_CLEARED',
+      refreshTokenRevoked: false,
     };
   }
 

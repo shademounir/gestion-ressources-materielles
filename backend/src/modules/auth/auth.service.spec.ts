@@ -144,4 +144,26 @@ describe('AuthService', () => {
       }),
     ).rejects.toThrow(new UnauthorizedException('Compte utilisateur non actif.'));
   });
+
+  it('logs out an authenticated user with a stateless JWT response', () => {
+    const result = authService.logout({
+      userId: 'user-1',
+      email: 'admin@faculty.test',
+      roles: [UserRole.ADMIN],
+    });
+
+    expect(result).toMatchObject({
+      message: 'Deconnexion effectuee.',
+      sessionState: 'CLIENT_CONTEXT_CLEARED',
+      refreshTokenRevoked: false,
+    });
+    expect(typeof result.loggedOutAt).toBe('string');
+    expect(Date.parse(result.loggedOutAt)).not.toBeNaN();
+  });
+
+  it('rejects logout without an authenticated user context', () => {
+    expect(() => authService.logout(undefined)).toThrow(
+      new UnauthorizedException('Utilisateur non authentifie.'),
+    );
+  });
 });
