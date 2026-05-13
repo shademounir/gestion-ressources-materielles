@@ -7,6 +7,7 @@ import { UserRole } from '../../../shared/enums/user-role.enum';
 interface JwtPayload {
   sub: string;
   email: string;
+  role?: UserRole;
   roles?: UserRole[];
 }
 
@@ -24,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: payload.sub,
       email: payload.email,
-      roles: payload.roles ?? [],
+      roles: payload.roles ?? (payload.role ? [payload.role] : []),
     };
   }
 }
