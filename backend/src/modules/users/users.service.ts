@@ -1,8 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AssignUserRole, AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 
@@ -51,15 +57,7 @@ export class UsersService {
       },
     });
 
-    return {
-      id: createdUser.id,
-      firstName: createdUser.firstName,
-      lastName: createdUser.lastName,
-      email: createdUser.email,
-      role: createdUser.role.name as UserRole,
-      isActive: createdUser.status === UserStatus.ACTIVE,
-      createdAt: createdUser.createdAt.toISOString(),
-    };
+    return this.toUserResponse(createdUser);
   }
 
   async deactivateUser(id: string): Promise<UserResponseDto> {
@@ -82,14 +80,71 @@ export class UsersService {
       },
     });
 
+    return this.toUserResponse(deactivatedUser);
+  }
+
+  async assignUserRole(
+    id: string,
+    assignUserRoleDto: AssignUserRoleDto,
+  ): Promise<UserResponseDto> {
+    if (!Object.values(AssignUserRole).includes(assignUserRoleDto.role)) {
+      throw new BadRequestException('Role utilisateur invalide.');
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (!existingUser || existingUser.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    const role = await this.prisma.role.upsert({
+      where: { name: assignUserRoleDto.role },
+      update: {},
+      create: {
+        name: assignUserRoleDto.role,
+      },
+    });
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data: {
+        roleId: role.id,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    return this.toUserResponse(updatedUser);
+  }
+
+  private toUserResponse(user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    status: UserStatus;
+    createdAt: Date;
+    role: { name: string };
+  }): UserResponseDto {
     return {
-      id: deactivatedUser.id,
-      firstName: deactivatedUser.firstName,
-      lastName: deactivatedUser.lastName,
-      email: deactivatedUser.email,
-      role: deactivatedUser.role.name as UserRole,
-      isActive: false,
-      createdAt: deactivatedUser.createdAt.toISOString(),
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: this.toUserRole(user.role.name),
+      isActive: user.status === UserStatus.ACTIVE,
+      createdAt: user.createdAt.toISOString(),
     };
+  }
+
+  private toUserRole(roleName: string): UserRole {
+    if (Object.values(UserRole).includes(roleName as UserRole)) {
+      return roleName as UserRole;
+    }
+
+    throw new BadRequestException('Role utilisateur invalide.');
   }
 }

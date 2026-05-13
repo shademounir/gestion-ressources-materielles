@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -15,6 +16,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
@@ -56,5 +58,23 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ): Promise<UserResponseDto> {
     return this.usersService.deactivateUser(id);
+  }
+
+  @Patch(':id/role')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Modifier le role d un utilisateur' })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID de l utilisateur' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiBadRequestResponse({ description: 'Role invalide' })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour modifier un role' })
+  @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
+  assignRole(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() assignUserRoleDto: AssignUserRoleDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.assignUserRole(id, assignUserRoleDto);
   }
 }
