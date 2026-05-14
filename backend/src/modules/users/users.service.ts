@@ -8,6 +8,7 @@ import { UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole, AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -120,6 +121,42 @@ export class UsersService {
     return this.toUserResponse(updatedUser);
   }
 
+  async assignUserDepartment(
+    id: string,
+    assignUserDepartmentDto: AssignUserDepartmentDto,
+  ): Promise<UserResponseDto> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (!existingUser || existingUser.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    const existingDepartment = await this.prisma.department.findUnique({
+      where: { id: assignUserDepartmentDto.departmentId },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (!existingDepartment || existingDepartment.deletedAt) {
+      throw new NotFoundException('Departement introuvable.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data: {
+        departmentId: assignUserDepartmentDto.departmentId,
+      },
+      include: {
+        role: true,
+        department: true,
+      },
+    });
+
+    return this.toUserResponse(updatedUser);
+  }
+
   private toUserResponse(user: {
     id: string;
     firstName: string;
@@ -128,8 +165,9 @@ export class UsersService {
     status: UserStatus;
     createdAt: Date;
     role: { name: string };
+    department?: { id: string; name: string } | null;
   }): UserResponseDto {
-    return {
+    const response: UserResponseDto = {
       id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -138,6 +176,17 @@ export class UsersService {
       isActive: user.status === UserStatus.ACTIVE,
       createdAt: user.createdAt.toISOString(),
     };
+
+    if (user.department !== undefined) {
+      response.department = user.department
+        ? {
+            id: user.department.id,
+            name: user.department.name,
+          }
+        : null;
+    }
+
+    return response;
   }
 
   private toUserRole(roleName: string): UserRole {
