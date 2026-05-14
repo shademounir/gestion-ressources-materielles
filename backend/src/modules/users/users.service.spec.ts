@@ -16,6 +16,9 @@ type PrismaMock = {
   role: {
     upsert: jest.Mock;
   };
+  department: {
+    findUnique: jest.Mock;
+  };
 };
 
 type UserCreateMockArgs = {
@@ -42,6 +45,9 @@ describe('UsersService', () => {
       },
       role: {
         upsert: jest.fn(),
+      },
+      department: {
+        findUnique: jest.fn(),
       },
     };
 
@@ -298,6 +304,108 @@ describe('UsersService', () => {
       }),
     ).rejects.toThrow(new NotFoundException('Utilisateur introuvable.'));
     expect(prisma.role.upsert).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('assigns an existing user to an existing department', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: null,
+    });
+    prisma.department.findUnique.mockResolvedValue({
+      id: 'department-1',
+      deletedAt: null,
+    });
+    prisma.user.update.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-05-13T15:30:00.000Z'),
+      role: {
+        name: RoleName.USER,
+      },
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+    });
+
+    const result = await service.assignUserDepartment('user-1', {
+      departmentId: 'department-1',
+    });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      select: { id: true, deletedAt: true },
+    });
+    expect(prisma.department.findUnique).toHaveBeenCalledWith({
+      where: { id: 'department-1' },
+      select: { id: true, deletedAt: true },
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { departmentId: 'department-1' },
+      include: { role: true, department: true },
+    });
+    expect(result).toEqual({
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      role: UserRole.USER,
+      isActive: true,
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+      createdAt: '2026-05-13T15:30:00.000Z',
+    });
+  });
+
+  it('rejects department assignment when the user does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.assignUserDepartment('missing-user', {
+        departmentId: 'department-1',
+      }),
+    ).rejects.toThrow(new NotFoundException('Utilisateur introuvable.'));
+    expect(prisma.department.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects department assignment when the department does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: null,
+    });
+    prisma.department.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.assignUserDepartment('user-1', {
+        departmentId: 'missing-department',
+      }),
+    ).rejects.toThrow(new NotFoundException('Departement introuvable.'));
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects department assignment when the department is logically deleted', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: null,
+    });
+    prisma.department.findUnique.mockResolvedValue({
+      id: 'department-1',
+      deletedAt: new Date('2026-05-14T09:30:00.000Z'),
+    });
+
+    await expect(
+      service.assignUserDepartment('user-1', {
+        departmentId: 'department-1',
+      }),
+    ).rejects.toThrow(new NotFoundException('Departement introuvable.'));
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
