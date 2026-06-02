@@ -45,6 +45,11 @@ enum NeedPriority {
   URGENT
 }
 
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -121,6 +126,21 @@ model NeedItem {
   updatedAt          DateTime @updatedAt
 
   @@index([needId])
+}
+
+model Supplier {
+  id           String         @id @default(uuid())
+  name         String         @unique
+  contactEmail String?        @unique
+  phone        String?
+  address      String?
+  status       SupplierStatus @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([name])
+  @@index([contactEmail])
+  @@index([status])
 }
 
 model AuditLog {
