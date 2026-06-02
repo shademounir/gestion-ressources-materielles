@@ -31,11 +31,27 @@ jobs:
       - name: Backend typecheck
         run: npm run typecheck --workspace backend
 
-      - name: Backend tests
-        run: npm run test --workspace backend
+      - name: Backend tests with coverage
+        run: npm run test:cov --workspace backend
+
+      - name: Upload backend coverage
+        if: always() && hashFiles('backend/coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          retention-days: 14
 
       - name: Backend build
         run: npm run build --workspace backend
+
+      - name: Upload backend build
+        if: success() && hashFiles('backend/dist/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: backend/dist
+          retention-days: 14
 
   frontend:
     runs-on: ubuntu-latest
@@ -58,8 +74,24 @@ jobs:
       - name: Frontend typecheck
         run: npm run typecheck --workspace frontend
 
-      - name: Frontend tests
-        run: npm run test --workspace frontend
+      - name: Frontend tests with coverage
+        run: npm run test:cov --workspace frontend
+
+      - name: Upload frontend coverage
+        if: always() && hashFiles('frontend/coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          retention-days: 14
 
       - name: Frontend build
         run: npm run build --workspace frontend
+
+      - name: Upload frontend build
+        if: success() && hashFiles('frontend/dist/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 14

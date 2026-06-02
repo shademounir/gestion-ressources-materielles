@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole } from './dto/assign-user-role.dto';
 import { CreateUserRole } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -129,6 +130,58 @@ describe('UsersController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected assignRole handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN]);
+  });
+
+  it('delegates department assignment to UsersService', async () => {
+    const userResponse: UserResponseDto = {
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      role: UserRole.USER,
+      isActive: true,
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+      createdAt: '2026-05-13T15:30:00.000Z',
+    };
+    const assignUserDepartmentMock = jest.fn().mockResolvedValue(userResponse);
+    const usersService = {
+      assignUserDepartment: assignUserDepartmentMock,
+      assignUserRole: jest.fn(),
+      deactivateUser: jest.fn(),
+      createUser: jest.fn(),
+      getFoundationStatus: jest.fn(),
+    } as unknown as UsersService;
+    const controller = new UsersController(usersService);
+    const assignUserDepartmentDto: AssignUserDepartmentDto = {
+      departmentId: 'department-1',
+    };
+
+    const result = await controller.assignDepartment('user-1', assignUserDepartmentDto);
+
+    expect(assignUserDepartmentMock).toHaveBeenCalledWith(
+      'user-1',
+      assignUserDepartmentDto,
+    );
+    expect(result).toEqual(userResponse);
+  });
+
+  it('requires ADMIN role on the assign department endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      UsersController.prototype,
+      'assignDepartment',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected assignDepartment handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];

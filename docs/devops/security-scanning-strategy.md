@@ -44,6 +44,15 @@ Strategie :
 - commencer par un profil standard ;
 - ajouter des regles specifiques si des risques projet apparaissent.
 
+Integration TECH-03 :
+
+- workflow dedie `.github/workflows/semgrep.yml` ;
+- profils standards `p/ci` et `p/security-audit` ;
+- scan limite a `backend/src` et `frontend/src` ;
+- exclusions des dossiers generes, dependances, builds, coverage et migrations Prisma ;
+- rapport JSON conserve comme artifact GitHub Actions ;
+- blocage initial limite aux findings de severite `ERROR`.
+
 ## GitHub CodeQL
 
 Objectif :
@@ -55,6 +64,13 @@ Usage :
 - scans sur Pull Request ;
 - scans planifies ;
 - scans sur branche principale.
+
+Integration :
+
+- workflow dedie `.github/workflows/codeql.yml` ;
+- langage `javascript-typescript` ;
+- publication des resultats dans GitHub Security ;
+- aucun secret projet requis.
 
 Regles :
 
@@ -107,12 +123,12 @@ Lorsque Docker sera introduit :
 
 ## Strategie DevSecOps progressive
 
-| Phase | Controles |
-| --- | --- |
-| Release 1 | npm audit, secret scanning |
-| Release 3 | Semgrep de base |
-| Release 5 | CodeQL et Dependabot |
-| Release 7 | quality gates securite bloquants |
+| Phase     | Controles                         |
+| --------- | --------------------------------- |
+| Release 1 | npm audit, secret scanning        |
+| Release 3 | Semgrep de base                   |
+| Release 5 | CodeQL et Dependabot              |
+| Release 7 | quality gates securite bloquants  |
 | Release 8 | scan Docker et politique complete |
 
 ## Regles de blocage securite

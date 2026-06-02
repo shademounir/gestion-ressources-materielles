@@ -29,6 +29,44 @@ enum DepartmentStatus {
   INACTIVE
 }
 
+enum NeedStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CONVERTED_TO_TENDER
+  CANCELLED
+}
+
+enum NeedPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TenderStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  AWARDED
+  CANCELLED
+  ARCHIVED
+}
+
+enum SupplierOfferStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  REJECTED
+  SELECTED
+  WITHDRAWN
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -44,6 +82,7 @@ model Department {
   description String?
   status      DepartmentStatus @default(ACTIVE)
   users       User[]
+  needs       Need[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
@@ -61,6 +100,8 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
   auditLogs    AuditLog[]
+  createdNeeds Need[]      @relation("NeedCreatedBy")
+  createdTenders Tender[]  @relation("TenderCreatedBy")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
@@ -68,6 +109,103 @@ model User {
   @@index([email])
   @@index([roleId])
   @@index([departmentId])
+}
+
+model Need {
+  id            String       @id @default(uuid())
+  title         String
+  justification String
+  priority      NeedPriority
+  status        NeedStatus   @default(SUBMITTED)
+  departmentId  String
+  department    Department   @relation(fields: [departmentId], references: [id])
+  createdById   String
+  createdBy     User         @relation("NeedCreatedBy", fields: [createdById], references: [id])
+  items         NeedItem[]
+  tenders       Tender[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([departmentId])
+  @@index([createdById])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model NeedItem {
+  id                 String   @id @default(uuid())
+  needId             String
+  need               Need     @relation(fields: [needId], references: [id], onDelete: Cascade)
+  designation        String
+  description        String?
+  quantity           Int
+  estimatedUnitPrice Decimal?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([needId])
+}
+
+model Supplier {
+  id           String         @id @default(uuid())
+  name         String         @unique
+  contactEmail String?        @unique
+  phone        String?
+  address      String?
+  status       SupplierStatus @default(ACTIVE)
+  offers       SupplierOffer[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([name])
+  @@index([contactEmail])
+  @@index([status])
+}
+
+model Tender {
+  id          String       @id @default(uuid())
+  reference   String       @unique
+  title       String
+  description String
+  status      TenderStatus @default(DRAFT)
+  deadline    DateTime
+  publishedAt DateTime?
+  awardedAt   DateTime?
+  needId      String
+  need        Need         @relation(fields: [needId], references: [id])
+  createdById String
+  createdBy   User         @relation("TenderCreatedBy", fields: [createdById], references: [id])
+  offers      SupplierOffer[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([needId])
+  @@index([createdById])
+  @@index([status])
+  @@index([deadline])
+}
+
+model SupplierOffer {
+  id                   String              @id @default(uuid())
+  tenderId             String
+  tender               Tender              @relation(fields: [tenderId], references: [id])
+  supplierId           String
+  supplier             Supplier            @relation(fields: [supplierId], references: [id])
+  amount               Decimal
+  proposedDeliveryDays Int
+  comment              String?
+  status               SupplierOfferStatus @default(SUBMITTED)
+  submittedAt          DateTime            @default(now())
+  selectedAt           DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([tenderId, supplierId])
+  @@index([tenderId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([submittedAt])
 }
 
 model AuditLog {
