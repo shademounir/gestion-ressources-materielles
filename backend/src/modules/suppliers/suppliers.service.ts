@@ -85,6 +85,24 @@ export class SuppliersService {
     };
   }
 
+  async deactivateSupplier(supplierId: string): Promise<SupplierResponseDto> {
+    const supplier = await this.prisma.supplier.findUnique({
+      where: { id: supplierId },
+      select: { id: true },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException('Fournisseur introuvable.');
+    }
+
+    const deactivatedSupplier = await this.prisma.supplier.update({
+      where: { id: supplierId },
+      data: { status: SupplierStatus.INACTIVE },
+    });
+
+    return this.toSupplierResponse(deactivatedSupplier);
+  }
+
   private toSupplierResponse(supplier: Supplier): SupplierResponseDto {
     return {
       id: supplier.id,
