@@ -63,6 +63,38 @@ export class TendersService {
     return this.toTenderResponse(tender);
   }
 
+  async publishTender(tenderId: string): Promise<TenderResponseDto> {
+    const tender = await this.prisma.tender.findUnique({
+      where: { id: tenderId },
+    });
+
+    if (!tender) {
+      throw new NotFoundException('Appel d offres introuvable.');
+    }
+
+    if (tender.status !== TenderStatus.DRAFT) {
+      throw new BadRequestException(
+        'Seul un appel d offres en brouillon peut etre publie.',
+      );
+    }
+
+    if (tender.deadline <= new Date()) {
+      throw new BadRequestException(
+        'La date limite doit etre future pour publier l appel d offres.',
+      );
+    }
+
+    const publishedTender = await this.prisma.tender.update({
+      where: { id: tenderId },
+      data: {
+        status: TenderStatus.PUBLISHED,
+        publishedAt: new Date(),
+      },
+    });
+
+    return this.toTenderResponse(publishedTender);
+  }
+
   private async resolveTenderReference(reference?: string): Promise<string> {
     if (reference) {
       const normalizedReference = reference.trim().toUpperCase();
@@ -108,6 +140,7 @@ export class TendersService {
       description: tender.description,
       status: tender.status,
       deadline: tender.deadline.toISOString(),
+      publishedAt: tender.publishedAt?.toISOString() ?? null,
       needId: tender.needId,
       createdById: tender.createdById,
       createdAt: tender.createdAt.toISOString(),

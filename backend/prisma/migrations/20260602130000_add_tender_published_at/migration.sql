@@ -1,0 +1,1 @@
+ALTER TABLE "Tender" ADD COLUMN "publishedAt" TIMESTAMP(3);

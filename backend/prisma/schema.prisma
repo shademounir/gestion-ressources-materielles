@@ -161,6 +161,7 @@ model Tender {
   description String
   status      TenderStatus @default(DRAFT)
   deadline    DateTime
+  publishedAt DateTime?
   needId      String
   need        Need         @relation(fields: [needId], references: [id])
   createdById String
