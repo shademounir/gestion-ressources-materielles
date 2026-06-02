@@ -1,0 +1,64 @@
+name: Semgrep
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+  schedule:
+    - cron: "0 7 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep TypeScript and JavaScript scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        run: python -m pip install --upgrade semgrep
+
+      - name: Run Semgrep
+        continue-on-error: true
+        run: >
+          semgrep scan
+          --config p/ci
+          --config p/security-audit
+          --exclude node_modules
+          --exclude dist
+          --exclude coverage
+          --exclude build
+          --exclude .next
+          --exclude .vite
+          --exclude backend/prisma/migrations
+          --json
+          --output semgrep-results.json
+          backend/src frontend/src
+
+      - name: Block on critical findings
+        if: always() && hashFiles('semgrep-results.json') != ''
+        run: |
+          critical_count=$(jq '[.results[] | select(.extra.severity == "ERROR")] | length' semgrep-results.json)
+          echo "Semgrep ERROR findings: ${critical_count}"
+          if [ "${critical_count}" -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Upload Semgrep report
+        if: always() && hashFiles('semgrep-results.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+          retention-days: 14
