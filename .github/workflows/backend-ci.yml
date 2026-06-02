@@ -42,8 +42,24 @@ jobs:
       - name: Typecheck
         run: npm run typecheck --workspace backend
 
-      - name: Test
-        run: npm run test --workspace backend
+      - name: Test with coverage
+        run: npm run test:cov --workspace backend
+
+      - name: Upload backend coverage
+        if: always() && hashFiles('backend/coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          retention-days: 14
 
       - name: Build
         run: npm run build --workspace backend
+
+      - name: Upload backend build
+        if: success() && hashFiles('backend/dist/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: backend/dist
+          retention-days: 14
