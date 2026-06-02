@@ -22,7 +22,8 @@ Objectifs DevSecOps :
 - lier systematiquement Jira et GitHub ;
 - suivre les tests unitaires des validations ;
 - documenter les decisions d'architecture ;
-- preparer l'integration SonarCloud.
+- preparer l'integration SonarCloud ;
+- introduire GitHub Actions Artifacts pour conserver les rapports CI/CD utiles a la soutenance.
 
 ## Release 3 - Fournisseurs et appels d'offres
 
@@ -72,7 +73,8 @@ Objectifs DevSecOps :
 - viser 80% de couverture sur nouveau code ;
 - bloquer vulnerabilites critiques et hautes ;
 - finaliser la review securite ;
-- nettoyer la dette technique majeure.
+- nettoyer la dette technique majeure ;
+- structurer les artefacts de preuves : tests, coverage, securite, SonarCloud.
 
 ## Release 8 - CI/CD, Docker, deploiement et rapport final
 
@@ -80,17 +82,38 @@ Objectifs DevSecOps :
 
 - finaliser GitHub Actions ;
 - activer Docker build ;
+- publier les images Docker dans un repository d'artefacts cible ;
 - ajouter scan Docker ;
 - verifier rollback ;
 - preparer deploiement staging ;
-- produire preuves de pipeline pour soutenance.
+- produire preuves de pipeline pour soutenance ;
+- definir JFrog Artifactory comme cible enterprise pour les artefacts deployables.
+
+## Strategie Artifact Repository
+
+Court terme :
+
+- utiliser GitHub Actions Artifacts pour les rapports de tests ;
+- conserver les rapports coverage ;
+- archiver les rapports de securite ;
+- conserver les builds backend/frontend lorsque pertinent ;
+- produire des preuves CI/CD exploitables en soutenance.
+
+Cible enterprise :
+
+- introduire JFrog Artifactory comme repository d'artefacts ;
+- publier les images Docker futures ;
+- tracer les build-info ;
+- promouvoir les artefacts entre dev, staging et prod ;
+- faciliter rollback et audit.
 
 ## Synthese progressive
 
-| Release | Qualite | Securite | Pipeline |
-| --- | --- | --- | --- |
-| R1 | Tests unitaires initiaux | npm audit informatif | CI minimale |
-| R3 | SonarCloud PR | Semgrep informatif | Checks PR |
-| R5 | Couverture suivie | CodeQL | Jobs paralleles |
-| R7 | Gates bloquants | Scans bloquants | Pipeline complet |
-| R8 | Rapport final | Scan Docker | Deploy staging |
+| Release | Qualite                  | Securite             | Pipeline                      |
+| ------- | ------------------------ | -------------------- | ----------------------------- |
+| R1      | Tests unitaires initiaux | npm audit informatif | CI minimale                   |
+| R2      | Rapports CI conserves    | Audit informatif     | GitHub Actions Artifacts      |
+| R3      | SonarCloud PR            | Semgrep informatif   | Checks PR                     |
+| R5      | Couverture suivie        | CodeQL               | Jobs paralleles               |
+| R7      | Gates bloquants          | Scans bloquants      | Pipeline complet              |
+| R8      | Rapport final            | Scan Docker          | JFrog cible et deploy staging |
