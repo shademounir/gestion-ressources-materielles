@@ -171,6 +171,7 @@ model Tender {
   status      TenderStatus @default(DRAFT)
   deadline    DateTime
   publishedAt DateTime?
+  awardedAt   DateTime?
   needId      String
   need        Need         @relation(fields: [needId], references: [id])
   createdById String
@@ -196,6 +197,7 @@ model SupplierOffer {
   comment              String?
   status               SupplierOfferStatus @default(SUBMITTED)
   submittedAt          DateTime            @default(now())
+  selectedAt           DateTime?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 

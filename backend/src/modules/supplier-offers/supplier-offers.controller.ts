@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -6,7 +6,9 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -40,5 +42,23 @@ export class SupplierOffersController {
     @Body() createSupplierOfferDto: CreateSupplierOfferDto,
   ): Promise<SupplierOfferResponseDto> {
     return this.supplierOffersService.createSupplierOffer(createSupplierOfferDto);
+  }
+
+  @Patch(':id/select')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Selectionner l'offre gagnante d'un appel d'offres" })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'offre fournisseur" })
+  @ApiOkResponse({ type: SupplierOfferResponseDto })
+  @ApiBadRequestResponse({ description: 'Statut offre ou appel d offres invalide' })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour selectionner une offre' })
+  @ApiNotFoundResponse({ description: 'Offre fournisseur introuvable' })
+  @ApiConflictResponse({ description: 'Offre gagnante deja selectionnee' })
+  select(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) supplierOfferId: string,
+  ): Promise<SupplierOfferResponseDto> {
+    return this.supplierOffersService.selectSupplierOffer(supplierOfferId);
   }
 }

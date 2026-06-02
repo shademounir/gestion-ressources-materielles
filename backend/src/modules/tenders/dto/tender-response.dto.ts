@@ -25,6 +25,9 @@ export class TenderResponseDto {
   @ApiPropertyOptional({ example: '2026-06-02T13:00:00.000Z', nullable: true })
   publishedAt!: string | null;
 
+  @ApiPropertyOptional({ example: '2026-06-02T15:00:00.000Z', nullable: true })
+  awardedAt!: string | null;
+
   @ApiProperty({ example: '2d891e20-3552-4ed6-8227-42fb698d7d2e' })
   needId!: string;
 
