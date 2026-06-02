@@ -10,6 +10,33 @@ L'application servira de support progressif pour trois modules pedagogiques :
 - Tests unitaires
 - CI/CD
 
+## Etat du projet
+
+Le projet dispose maintenant d'un socle backend et DevSecOps stable prepare pour la release `v1.0.0`.
+
+Release actuelle preparee :
+
+- `v1.0.0 - Stable Backend + DevSecOps Foundation`
+
+Perimetre stabilise :
+
+- Auth / Users ;
+- Departments ;
+- Needs ;
+- Suppliers ;
+- Tenders ;
+- Supplier Offers ;
+- Winner Selection ;
+- CI/CD et controles DevSecOps.
+
+Pipeline DevSecOps disponible :
+
+- GitHub Actions ;
+- SonarCloud ;
+- CodeQL ;
+- Semgrep ;
+- GitHub Actions Artifacts.
+
 ## Objectifs pedagogiques
 
 - Formaliser un besoin metier realiste avant le developpement.
