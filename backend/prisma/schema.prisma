@@ -29,6 +29,22 @@ enum DepartmentStatus {
   INACTIVE
 }
 
+enum NeedStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CONVERTED_TO_TENDER
+  CANCELLED
+}
+
+enum NeedPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -44,6 +60,7 @@ model Department {
   description String?
   status      DepartmentStatus @default(ACTIVE)
   users       User[]
+  needs       Need[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
@@ -61,6 +78,7 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
   auditLogs    AuditLog[]
+  createdNeeds Need[]     @relation("NeedCreatedBy")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
@@ -68,6 +86,41 @@ model User {
   @@index([email])
   @@index([roleId])
   @@index([departmentId])
+}
+
+model Need {
+  id            String       @id @default(uuid())
+  title         String
+  justification String
+  priority      NeedPriority
+  status        NeedStatus   @default(SUBMITTED)
+  departmentId  String
+  department    Department   @relation(fields: [departmentId], references: [id])
+  createdById   String
+  createdBy     User         @relation("NeedCreatedBy", fields: [createdById], references: [id])
+  items         NeedItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([departmentId])
+  @@index([createdById])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model NeedItem {
+  id                 String   @id @default(uuid())
+  needId             String
+  need               Need     @relation(fields: [needId], references: [id], onDelete: Cascade)
+  designation        String
+  description        String?
+  quantity           Int
+  estimatedUnitPrice Decimal?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([needId])
 }
 
 model AuditLog {
