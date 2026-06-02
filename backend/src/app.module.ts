@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DepartmentNeedsModule } from './modules/department-needs/department-needs.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { HealthModule } from './modules/health/health.module';
+import { SupplierOffersModule } from './modules/supplier-offers/supplier-offers.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { TendersModule } from './modules/tenders/tenders.module';
 import { UsersModule } from './modules/users/users.module';
@@ -23,6 +24,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     DepartmentsModule,
     DepartmentNeedsModule,
+    SupplierOffersModule,
     SuppliersModule,
     TendersModule,
   ],
