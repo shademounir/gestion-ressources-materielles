@@ -59,6 +59,14 @@ enum TenderStatus {
   ARCHIVED
 }
 
+enum SupplierOfferStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  REJECTED
+  SELECTED
+  WITHDRAWN
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -146,6 +154,7 @@ model Supplier {
   phone        String?
   address      String?
   status       SupplierStatus @default(ACTIVE)
+  offers       SupplierOffer[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -166,6 +175,7 @@ model Tender {
   need        Need         @relation(fields: [needId], references: [id])
   createdById String
   createdBy   User         @relation("TenderCreatedBy", fields: [createdById], references: [id])
+  offers      SupplierOffer[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -173,6 +183,27 @@ model Tender {
   @@index([createdById])
   @@index([status])
   @@index([deadline])
+}
+
+model SupplierOffer {
+  id                   String              @id @default(uuid())
+  tenderId             String
+  tender               Tender              @relation(fields: [tenderId], references: [id])
+  supplierId           String
+  supplier             Supplier            @relation(fields: [supplierId], references: [id])
+  amount               Decimal
+  proposedDeliveryDays Int
+  comment              String?
+  status               SupplierOfferStatus @default(SUBMITTED)
+  submittedAt          DateTime            @default(now())
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([tenderId, supplierId])
+  @@index([tenderId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([submittedAt])
 }
 
 model AuditLog {
