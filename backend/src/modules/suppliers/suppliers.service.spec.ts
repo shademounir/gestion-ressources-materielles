@@ -8,6 +8,7 @@ type PrismaMock = {
     findFirst: jest.Mock;
     findUnique: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
   };
 };
 
@@ -21,6 +22,7 @@ describe('SuppliersService', () => {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
     };
     service = new SuppliersService(prisma as unknown as PrismaService);
@@ -182,5 +184,48 @@ describe('SuppliersService', () => {
     await expect(service.getSupplierHistory('supplier-unknown')).rejects.toThrow(
       new NotFoundException('Fournisseur introuvable.'),
     );
+  });
+
+  it('deactivates an existing supplier without deleting it', async () => {
+    prisma.supplier.findUnique.mockResolvedValue({ id: 'supplier-1' });
+    prisma.supplier.update.mockResolvedValue({
+      id: 'supplier-1',
+      name: 'Tech Solutions Maroc',
+      contactEmail: 'contact@techsolutions.test',
+      phone: '+212 522 000 000',
+      address: 'Casablanca, Maroc',
+      status: SupplierStatus.INACTIVE,
+      createdAt: new Date('2026-06-02T11:00:00.000Z'),
+      updatedAt: new Date('2026-06-02T12:00:00.000Z'),
+    });
+
+    const result = await service.deactivateSupplier('supplier-1');
+
+    expect(prisma.supplier.findUnique).toHaveBeenCalledWith({
+      where: { id: 'supplier-1' },
+      select: { id: true },
+    });
+    expect(prisma.supplier.update).toHaveBeenCalledWith({
+      where: { id: 'supplier-1' },
+      data: { status: SupplierStatus.INACTIVE },
+    });
+    expect(result).toEqual({
+      id: 'supplier-1',
+      name: 'Tech Solutions Maroc',
+      contactEmail: 'contact@techsolutions.test',
+      phone: '+212 522 000 000',
+      address: 'Casablanca, Maroc',
+      status: SupplierStatus.INACTIVE,
+      createdAt: '2026-06-02T11:00:00.000Z',
+    });
+  });
+
+  it('rejects supplier deactivation when supplier does not exist', async () => {
+    prisma.supplier.findUnique.mockResolvedValue(null);
+
+    await expect(service.deactivateSupplier('supplier-unknown')).rejects.toThrow(
+      new NotFoundException('Fournisseur introuvable.'),
+    );
+    expect(prisma.supplier.update).not.toHaveBeenCalled();
   });
 });

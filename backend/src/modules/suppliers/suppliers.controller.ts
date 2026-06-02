@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -52,5 +61,21 @@ export class SuppliersController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) supplierId: string,
   ): Promise<SupplierHistoryResponseDto> {
     return this.suppliersService.getSupplierHistory(supplierId);
+  }
+
+  @Patch(':id/deactivate')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Desactiver un fournisseur sans suppression physique' })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID du fournisseur' })
+  @ApiOkResponse({ type: SupplierResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour desactiver un fournisseur' })
+  @ApiNotFoundResponse({ description: 'Fournisseur introuvable' })
+  deactivate(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) supplierId: string,
+  ): Promise<SupplierResponseDto> {
+    return this.suppliersService.deactivateSupplier(supplierId);
   }
 }
