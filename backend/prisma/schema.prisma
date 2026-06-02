@@ -50,6 +50,15 @@ enum SupplierStatus {
   INACTIVE
 }
 
+enum TenderStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  AWARDED
+  CANCELLED
+  ARCHIVED
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -83,7 +92,8 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
   auditLogs    AuditLog[]
-  createdNeeds Need[]     @relation("NeedCreatedBy")
+  createdNeeds Need[]      @relation("NeedCreatedBy")
+  createdTenders Tender[]  @relation("TenderCreatedBy")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
@@ -104,6 +114,7 @@ model Need {
   createdById   String
   createdBy     User         @relation("NeedCreatedBy", fields: [createdById], references: [id])
   items         NeedItem[]
+  tenders       Tender[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -141,6 +152,26 @@ model Supplier {
   @@index([name])
   @@index([contactEmail])
   @@index([status])
+}
+
+model Tender {
+  id          String       @id @default(uuid())
+  reference   String       @unique
+  title       String
+  description String
+  status      TenderStatus @default(DRAFT)
+  deadline    DateTime
+  needId      String
+  need        Need         @relation(fields: [needId], references: [id])
+  createdById String
+  createdBy   User         @relation("TenderCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([needId])
+  @@index([createdById])
+  @@index([status])
+  @@index([deadline])
 }
 
 model AuditLog {

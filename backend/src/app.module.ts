@@ -7,6 +7,7 @@ import { DepartmentNeedsModule } from './modules/department-needs/department-nee
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { HealthModule } from './modules/health/health.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { TendersModule } from './modules/tenders/tenders.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { UsersModule } from './modules/users/users.module';
     DepartmentsModule,
     DepartmentNeedsModule,
     SuppliersModule,
+    TendersModule,
   ],
 })
 export class AppModule {}
