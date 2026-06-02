@@ -67,6 +67,14 @@ enum SupplierOfferStatus {
   WITHDRAWN
 }
 
+enum ResourceStatus {
+  AVAILABLE
+  ASSIGNED
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+  ARCHIVED
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -155,6 +163,7 @@ model Supplier {
   address      String?
   status       SupplierStatus @default(ACTIVE)
   offers       SupplierOffer[]
+  resources    Resource[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -206,6 +215,28 @@ model SupplierOffer {
   @@index([supplierId])
   @@index([status])
   @@index([submittedAt])
+}
+
+model Resource {
+  id               String         @id @default(uuid())
+  name             String
+  inventoryCode    String         @unique
+  category         String
+  description      String?
+  serialNumber     String?
+  acquisitionDate  DateTime?
+  acquisitionValue Decimal?
+  status           ResourceStatus @default(AVAILABLE)
+  supplierId       String?
+  supplier         Supplier?      @relation(fields: [supplierId], references: [id])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([inventoryCode])
+  @@index([category])
+  @@index([status])
+  @@index([supplierId])
+  @@index([createdAt])
 }
 
 model AuditLog {
