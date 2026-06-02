@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
+import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
@@ -76,5 +77,22 @@ export class UsersController {
     @Body() assignUserRoleDto: AssignUserRoleDto,
   ): Promise<UserResponseDto> {
     return this.usersService.assignUserRole(id, assignUserRoleDto);
+  }
+
+  @Patch(':id/department')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Rattacher un utilisateur a un departement' })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID de l utilisateur' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour rattacher un departement' })
+  @ApiNotFoundResponse({ description: 'Utilisateur ou departement introuvable' })
+  assignDepartment(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() assignUserDepartmentDto: AssignUserDepartmentDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.assignUserDepartment(id, assignUserDepartmentDto);
   }
 }

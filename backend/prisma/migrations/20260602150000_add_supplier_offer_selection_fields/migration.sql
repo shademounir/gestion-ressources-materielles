@@ -1,0 +1,3 @@
+ALTER TABLE "Tender" ADD COLUMN "awardedAt" TIMESTAMP(3);
+
+ALTER TABLE "SupplierOffer" ADD COLUMN "selectedAt" TIMESTAMP(3);
