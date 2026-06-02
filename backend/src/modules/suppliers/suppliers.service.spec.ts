@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SupplierStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SuppliersService } from './suppliers.service';
@@ -6,6 +6,7 @@ import { SuppliersService } from './suppliers.service';
 type PrismaMock = {
   supplier: {
     findFirst: jest.Mock;
+    findUnique: jest.Mock;
     create: jest.Mock;
   };
 };
@@ -18,6 +19,7 @@ describe('SuppliersService', () => {
     prisma = {
       supplier: {
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
       },
     };
@@ -138,5 +140,47 @@ describe('SuppliersService', () => {
       new ConflictException('Un fournisseur avec ce nom ou cet email existe deja.'),
     );
     expect(prisma.supplier.create).not.toHaveBeenCalled();
+  });
+
+  it('returns a structured supplier history with future relation placeholders', async () => {
+    prisma.supplier.findUnique.mockResolvedValue({
+      id: 'supplier-1',
+      name: 'Tech Solutions Maroc',
+      contactEmail: 'contact@techsolutions.test',
+      phone: '+212 522 000 000',
+      address: 'Casablanca, Maroc',
+      status: SupplierStatus.ACTIVE,
+      createdAt: new Date('2026-06-02T11:00:00.000Z'),
+      updatedAt: new Date('2026-06-02T11:30:00.000Z'),
+    });
+
+    const result = await service.getSupplierHistory('supplier-1');
+
+    expect(prisma.supplier.findUnique).toHaveBeenCalledWith({
+      where: { id: 'supplier-1' },
+    });
+    expect(result).toEqual({
+      supplierIdentity: {
+        id: 'supplier-1',
+        name: 'Tech Solutions Maroc',
+        contactEmail: 'contact@techsolutions.test',
+        phone: '+212 522 000 000',
+        address: 'Casablanca, Maroc',
+      },
+      supplierStatus: SupplierStatus.ACTIVE,
+      supplierCreatedAt: '2026-06-02T11:00:00.000Z',
+      supplierUpdatedAt: '2026-06-02T11:30:00.000Z',
+      offersCount: 0,
+      tendersCount: 0,
+      maintenanceReturnsCount: 0,
+    });
+  });
+
+  it('rejects supplier history retrieval when supplier does not exist', async () => {
+    prisma.supplier.findUnique.mockResolvedValue(null);
+
+    await expect(service.getSupplierHistory('supplier-unknown')).rejects.toThrow(
+      new NotFoundException('Fournisseur introuvable.'),
+    );
   });
 });

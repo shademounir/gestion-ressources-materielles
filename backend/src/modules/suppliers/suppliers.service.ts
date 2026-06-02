@@ -1,7 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Supplier, SupplierStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { SupplierHistoryResponseDto } from './dto/supplier-history-response.dto';
 import { SupplierResponseDto } from './dto/supplier-response.dto';
 
 @Injectable()
@@ -56,6 +57,32 @@ export class SuppliersService {
     });
 
     return this.toSupplierResponse(createdSupplier);
+  }
+
+  async getSupplierHistory(supplierId: string): Promise<SupplierHistoryResponseDto> {
+    const supplier = await this.prisma.supplier.findUnique({
+      where: { id: supplierId },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException('Fournisseur introuvable.');
+    }
+
+    return {
+      supplierIdentity: {
+        id: supplier.id,
+        name: supplier.name,
+        contactEmail: supplier.contactEmail,
+        phone: supplier.phone,
+        address: supplier.address,
+      },
+      supplierStatus: supplier.status,
+      supplierCreatedAt: supplier.createdAt.toISOString(),
+      supplierUpdatedAt: supplier.updatedAt.toISOString(),
+      offersCount: 0,
+      tendersCount: 0,
+      maintenanceReturnsCount: 0,
+    };
   }
 
   private toSupplierResponse(supplier: Supplier): SupplierResponseDto {
