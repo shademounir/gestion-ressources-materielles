@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TenderStatus } from '@prisma/client';
 
 export class TenderResponseDto {
@@ -21,6 +21,9 @@ export class TenderResponseDto {
 
   @ApiProperty({ example: '2026-07-15T12:00:00.000Z' })
   deadline!: string;
+
+  @ApiPropertyOptional({ example: '2026-06-02T13:00:00.000Z', nullable: true })
+  publishedAt!: string | null;
 
   @ApiProperty({ example: '2d891e20-3552-4ed6-8227-42fb698d7d2e' })
   needId!: string;

@@ -1,6 +1,9 @@
 import {
   Body,
   Controller,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   UnauthorizedException,
@@ -13,7 +16,9 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -55,5 +60,22 @@ export class TendersController {
     }
 
     return this.tendersService.createTender(createTenderDto, createdById);
+  }
+
+  @Patch(':id/publish')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Publier un appel d'offres en brouillon" })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'appel d'offres" })
+  @ApiOkResponse({ type: TenderResponseDto })
+  @ApiBadRequestResponse({ description: 'Statut invalide ou deadline expiree' })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: "Role insuffisant pour publier un appel d'offres" })
+  @ApiNotFoundResponse({ description: "Appel d'offres introuvable" })
+  publish(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) tenderId: string,
+  ): Promise<TenderResponseDto> {
+    return this.tendersService.publishTender(tenderId);
   }
 }
