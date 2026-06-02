@@ -104,6 +104,44 @@ Court terme :
 - utiliser GitHub Actions Artifacts pour rapports de tests, coverage et builds ;
 - conserver les preuves CI/CD utiles pour les reviews et la soutenance.
 
+Artefacts publies par TECH-04 :
+
+| Artefact            | Source          | Contenu                         | Retention |
+| ------------------- | --------------- | ------------------------------- | --------- |
+| `backend-coverage`  | Backend CI, PR  | Rapports Jest coverage          | 14 jours  |
+| `frontend-coverage` | Frontend CI, PR | Rapports Vitest coverage        | 14 jours  |
+| `backend-build`     | Backend CI, PR  | Build NestJS compile `dist`     | 14 jours  |
+| `frontend-build`    | Frontend CI, PR | Build React/Vite compile `dist` | 14 jours  |
+| `semgrep-report`    | Semgrep         | Rapport JSON Semgrep            | 14 jours  |
+
+Les artefacts publies excluent volontairement :
+
+- `node_modules` ;
+- fichiers `.env` ;
+- secrets ;
+- caches locaux ;
+- volumes Docker ;
+- fichiers temporaires non utiles a l'audit.
+
+## Recuperation depuis GitHub Actions
+
+Pour recuperer un artefact :
+
+1. Ouvrir la Pull Request ou le commit concerne.
+2. Aller dans l'onglet `Checks` ou `Actions`.
+3. Ouvrir l'execution GitHub Actions.
+4. Consulter la section `Artifacts`.
+5. Telecharger l'artefact souhaite.
+
+Ces artefacts servent de preuves pour :
+
+- revue technique ;
+- validation CI/CD ;
+- analyse coverage ;
+- analyse securite ;
+- soutenance academique ;
+- comparaison entre executions.
+
 Cible enterprise :
 
 - utiliser JFrog Artifactory pour les artefacts versionnes ;

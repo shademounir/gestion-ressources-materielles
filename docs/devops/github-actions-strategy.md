@@ -120,6 +120,30 @@ Ces artefacts doivent rester lies a :
 - la User Story Jira ;
 - la release cible.
 
+Integration TECH-04 :
+
+| Workflow          | Artefact            | Source                 |
+| ----------------- | ------------------- | ---------------------- |
+| `backend-ci.yml`  | `backend-coverage`  | `backend/coverage`     |
+| `backend-ci.yml`  | `backend-build`     | `backend/dist`         |
+| `frontend-ci.yml` | `frontend-coverage` | `frontend/coverage`    |
+| `frontend-ci.yml` | `frontend-build`    | `frontend/dist`        |
+| `pr-checks.yml`   | `backend-coverage`  | job backend PR         |
+| `pr-checks.yml`   | `backend-build`     | job backend PR         |
+| `pr-checks.yml`   | `frontend-coverage` | job frontend PR        |
+| `pr-checks.yml`   | `frontend-build`    | job frontend PR        |
+| `semgrep.yml`     | `semgrep-report`    | `semgrep-results.json` |
+
+La retention initiale est fixee a 14 jours pour limiter le stockage tout en conservant assez de preuves pour les reviews et la soutenance.
+
+Regles de securite :
+
+- ne jamais uploader `.env` ;
+- ne jamais uploader de secret ;
+- ne pas uploader `node_modules` ;
+- ne pas uploader de caches npm ;
+- limiter les chemins publies a `coverage`, `dist` et rapports de scan explicitement generes.
+
 ## Strategie de nommage artefacts
 
 Convention cible :

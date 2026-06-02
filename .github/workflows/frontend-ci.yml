@@ -39,8 +39,24 @@ jobs:
       - name: Typecheck
         run: npm run typecheck --workspace frontend
 
-      - name: Test
-        run: npm run test --workspace frontend
+      - name: Test with coverage
+        run: npm run test:cov --workspace frontend
+
+      - name: Upload frontend coverage
+        if: always() && hashFiles('frontend/coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          retention-days: 14
 
       - name: Build
         run: npm run build --workspace frontend
+
+      - name: Upload frontend build
+        if: success() && hashFiles('frontend/dist/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 14

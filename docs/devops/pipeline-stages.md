@@ -76,6 +76,16 @@ Clean -> Test -> Qualite de code -> Security -> Build -> Publish Artifact -> Dep
 | Critere de succes | Artefact disponible avec nommage et retention definis            |
 | Blocage           | Non-bloquant au debut, bloquant pour releases deployables        |
 
+Artefacts GitHub Actions court terme :
+
+- `backend-coverage` ;
+- `frontend-coverage` ;
+- `backend-build` ;
+- `frontend-build` ;
+- `semgrep-report`.
+
+Ces artefacts sont publies avec une retention de 14 jours et ne doivent contenir aucun secret ni fichier d'environnement.
+
 ## Step 7 - Deploy
 
 | Element           | Description                                              |
