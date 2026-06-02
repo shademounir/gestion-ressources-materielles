@@ -44,6 +44,15 @@ Strategie :
 - commencer par un profil standard ;
 - ajouter des regles specifiques si des risques projet apparaissent.
 
+Integration TECH-03 :
+
+- workflow dedie `.github/workflows/semgrep.yml` ;
+- profils standards `p/ci` et `p/security-audit` ;
+- scan limite a `backend/src` et `frontend/src` ;
+- exclusions des dossiers generes, dependances, builds, coverage et migrations Prisma ;
+- rapport JSON conserve comme artifact GitHub Actions ;
+- blocage initial limite aux findings de severite `ERROR`.
+
 ## GitHub CodeQL
 
 Objectif :
