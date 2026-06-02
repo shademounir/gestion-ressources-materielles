@@ -1,11 +1,22 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -14,6 +25,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { CreateResourceDto } from './dto/create-resource.dto';
+import { ListResourcesQueryDto } from './dto/list-resources-query.dto';
+import { ResourceDetailResponseDto } from './dto/resource-detail-response.dto';
+import { ResourceListResponseDto } from './dto/resource-list-response.dto';
 import { ResourceResponseDto } from './dto/resource-response.dto';
 import { ResourcesService } from './resources.service';
 
@@ -21,6 +35,34 @@ import { ResourcesService } from './resources.service';
 @Controller('resources')
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Consulter l'inventaire des ressources" })
+  @ApiOkResponse({ type: ResourceListResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: "Role insuffisant pour consulter l'inventaire" })
+  findAll(@Query() query: ListResourcesQueryDto): Promise<ResourceListResponseDto> {
+    return this.resourcesService.listResources(query);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Consulter le detail d'une ressource" })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID de la ressource' })
+  @ApiOkResponse({ type: ResourceDetailResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour consulter une ressource' })
+  @ApiNotFoundResponse({ description: 'Ressource introuvable' })
+  findOne(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) resourceId: string,
+  ): Promise<ResourceDetailResponseDto> {
+    return this.resourcesService.getResourceById(resourceId);
+  }
 
   @Post()
   @ApiBearerAuth()
