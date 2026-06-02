@@ -141,6 +141,7 @@ export class TendersService {
       status: tender.status,
       deadline: tender.deadline.toISOString(),
       publishedAt: tender.publishedAt?.toISOString() ?? null,
+      awardedAt: tender.awardedAt?.toISOString() ?? null,
       needId: tender.needId,
       createdById: tender.createdById,
       createdAt: tender.createdAt.toISOString(),

@@ -26,6 +26,9 @@ export class SupplierOfferResponseDto {
   @ApiProperty({ example: '2026-06-02T14:00:00.000Z' })
   submittedAt!: string;
 
+  @ApiPropertyOptional({ example: '2026-06-02T15:00:00.000Z', nullable: true })
+  selectedAt!: string | null;
+
   @ApiProperty({ example: '2026-06-02T14:00:00.000Z' })
   createdAt!: string;
 

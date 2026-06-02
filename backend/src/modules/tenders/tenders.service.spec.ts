@@ -46,6 +46,7 @@ describe('TendersService', () => {
       status: TenderStatus.DRAFT,
       deadline: new Date('2026-07-15T12:00:00.000Z'),
       publishedAt: null,
+      awardedAt: null,
       needId: 'need-1',
       createdById: 'user-1',
       createdAt: new Date('2026-06-02T12:00:00.000Z'),
@@ -99,6 +100,7 @@ describe('TendersService', () => {
       status: TenderStatus.DRAFT,
       deadline: '2026-07-15T12:00:00.000Z',
       publishedAt: null,
+      awardedAt: null,
       needId: 'need-1',
       createdById: 'user-1',
       createdAt: '2026-06-02T12:00:00.000Z',
@@ -131,6 +133,7 @@ describe('TendersService', () => {
 
     expect(result.reference).toMatch(/^AO-\d{8}-[A-F0-9]{8}$/);
     expect(result.publishedAt).toBeNull();
+    expect(result.awardedAt).toBeNull();
     expect(prisma.tender.create).toHaveBeenCalledWith({
       data: {
         reference: result.reference,
@@ -224,6 +227,7 @@ describe('TendersService', () => {
       status: TenderStatus.DRAFT,
       deadline: new Date('2026-07-15T12:00:00.000Z'),
       publishedAt: null,
+      awardedAt: null,
       needId: 'need-1',
       createdById: 'user-1',
       createdAt: new Date('2026-06-02T12:00:00.000Z'),
@@ -237,6 +241,7 @@ describe('TendersService', () => {
       status: TenderStatus.PUBLISHED,
       deadline: new Date('2026-07-15T12:00:00.000Z'),
       publishedAt: new Date('2026-06-02T13:00:00.000Z'),
+      awardedAt: null,
       needId: 'need-1',
       createdById: 'user-1',
       createdAt: new Date('2026-06-02T12:00:00.000Z'),
@@ -270,6 +275,7 @@ describe('TendersService', () => {
       status: TenderStatus.PUBLISHED,
       deadline: '2026-07-15T12:00:00.000Z',
       publishedAt: '2026-06-02T13:00:00.000Z',
+      awardedAt: null,
       needId: 'need-1',
       createdById: 'user-1',
       createdAt: '2026-06-02T12:00:00.000Z',
