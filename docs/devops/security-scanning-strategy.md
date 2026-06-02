@@ -56,6 +56,13 @@ Usage :
 - scans planifies ;
 - scans sur branche principale.
 
+Integration :
+
+- workflow dedie `.github/workflows/codeql.yml` ;
+- langage `javascript-typescript` ;
+- publication des resultats dans GitHub Security ;
+- aucun secret projet requis.
+
 Regles :
 
 - alertes critiques traitees avant merge ;
@@ -107,12 +114,12 @@ Lorsque Docker sera introduit :
 
 ## Strategie DevSecOps progressive
 
-| Phase | Controles |
-| --- | --- |
-| Release 1 | npm audit, secret scanning |
-| Release 3 | Semgrep de base |
-| Release 5 | CodeQL et Dependabot |
-| Release 7 | quality gates securite bloquants |
+| Phase     | Controles                         |
+| --------- | --------------------------------- |
+| Release 1 | npm audit, secret scanning        |
+| Release 3 | Semgrep de base                   |
+| Release 5 | CodeQL et Dependabot              |
+| Release 7 | quality gates securite bloquants  |
 | Release 8 | scan Docker et politique complete |
 
 ## Regles de blocage securite
