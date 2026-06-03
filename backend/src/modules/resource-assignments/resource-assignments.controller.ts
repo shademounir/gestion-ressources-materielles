@@ -1,4 +1,12 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -7,6 +15,8 @@ import {
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiOkResponse,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -16,6 +26,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
+import { ReturnResourceAssignmentDto } from './dto/return-resource-assignment.dto';
 import { ResourceAssignmentsService } from './resource-assignments.service';
 
 @ApiTags('resource-assignments')
@@ -43,6 +54,29 @@ export class ResourceAssignmentsController {
   ): Promise<ResourceAssignmentResponseDto> {
     return this.resourceAssignmentsService.assignResource(
       createResourceAssignmentDto,
+    );
+  }
+
+  @Patch(':id/return')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Retourner une ressource affectee' })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'affectation" })
+  @ApiOkResponse({ type: ResourceAssignmentResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Affectation non active ou ressource non affectee',
+  })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour retourner une ressource' })
+  @ApiNotFoundResponse({ description: 'Affectation ou ressource introuvable' })
+  returnResource(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) assignmentId: string,
+    @Body() returnResourceAssignmentDto: ReturnResourceAssignmentDto,
+  ): Promise<ResourceAssignmentResponseDto> {
+    return this.resourceAssignmentsService.returnResource(
+      assignmentId,
+      returnResourceAssignmentDto,
     );
   }
 }
