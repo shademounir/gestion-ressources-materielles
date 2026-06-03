@@ -12,6 +12,8 @@ import {
 } from '../modules/assignments/assignmentsService';
 import { listResources, type ResourceListItem } from '../modules/resources/resourcesService';
 import { useAuth } from '../modules/auth/useAuth';
+import { FeedbackMessage } from '../shared/components/FeedbackMessage';
+import { formatDate } from '../shared/utils/formatters';
 
 const ASSIGNMENT_PAGE_SIZE = 8;
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0];
@@ -21,14 +23,6 @@ const assignmentStatusLabels: Record<AssignmentStatus, string> = {
   RETURNED: 'Retournee',
   CANCELLED: 'Annulee',
 };
-
-function formatDate(value: string | null): string {
-  if (!value) {
-    return '-';
-  }
-
-  return new Intl.DateTimeFormat('fr-FR').format(new Date(value));
-}
 
 export function AssignmentsPage() {
   const { accessToken } = useAuth();
@@ -233,14 +227,7 @@ export function AssignmentsPage() {
         </span>
       </div>
 
-      {(errorMessage || successMessage) && (
-        <div
-          className={successMessage ? 'feedback-message feedback-success' : 'feedback-message'}
-          role="status"
-        >
-          {successMessage ?? errorMessage}
-        </div>
-      )}
+      <FeedbackMessage errorMessage={errorMessage} successMessage={successMessage} />
 
       <div className="resource-workspace">
         <section className="resource-list-panel" aria-labelledby="assignment-history-title">

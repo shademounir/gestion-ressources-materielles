@@ -13,6 +13,8 @@ import {
   updateResourceStatus,
 } from '../modules/resources/resourcesService';
 import { useAuth } from '../modules/auth/useAuth';
+import { FeedbackMessage } from '../shared/components/FeedbackMessage';
+import { formatCurrency, formatDate } from '../shared/utils/formatters';
 
 const RESOURCE_PAGE_SIZE = 8;
 
@@ -66,25 +68,6 @@ function normalizeResourcePayload(form: ResourceFormState): CreateResourcePayloa
   }
 
   return payload;
-}
-
-function formatDate(value: string | null): string {
-  if (!value) {
-    return '-';
-  }
-
-  return new Intl.DateTimeFormat('fr-FR').format(new Date(value));
-}
-
-function formatCurrency(value: string | null): string {
-  if (!value) {
-    return '-';
-  }
-
-  return new Intl.NumberFormat('fr-FR', {
-    currency: 'MAD',
-    style: 'currency',
-  }).format(Number(value));
 }
 
 export function ResourcesPage() {
@@ -249,14 +232,7 @@ export function ResourcesPage() {
         <span className="dashboard-status">{meta.total} ressources</span>
       </div>
 
-      {(errorMessage || successMessage) && (
-        <div
-          className={successMessage ? 'feedback-message feedback-success' : 'feedback-message'}
-          role="status"
-        >
-          {successMessage ?? errorMessage}
-        </div>
-      )}
+      <FeedbackMessage errorMessage={errorMessage} successMessage={successMessage} />
 
       <div className="resource-workspace">
         <section className="resource-list-panel" aria-labelledby="resource-list-title">

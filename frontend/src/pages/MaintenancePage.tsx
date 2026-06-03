@@ -9,6 +9,7 @@ import {
 } from '../modules/maintenance/maintenanceService';
 import { listResources, type ResourceListItem } from '../modules/resources/resourcesService';
 import { useAuth } from '../modules/auth/useAuth';
+import { FeedbackMessage } from '../shared/components/FeedbackMessage';
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0];
 type MaintenanceAction = 'ticket' | 'report' | 'intervention' | 'supplierReturn';
@@ -274,14 +275,7 @@ export function MaintenancePage() {
         </span>
       </div>
 
-      {(errorMessage || successMessage) && (
-        <div
-          className={successMessage ? 'feedback-message feedback-success' : 'feedback-message'}
-          role="status"
-        >
-          {successMessage ?? errorMessage}
-        </div>
-      )}
+      <FeedbackMessage errorMessage={errorMessage} successMessage={successMessage} />
 
       <div className="maintenance-grid">
         {workflowSteps.map((step) => (
