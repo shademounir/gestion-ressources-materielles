@@ -81,6 +81,21 @@ enum ResourceAssignmentStatus {
   CANCELLED
 }
 
+enum MaintenanceTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -103,23 +118,24 @@ model Department {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  status       UserStatus @default(ACTIVE)
-  roleId       String
-  role         Role       @relation(fields: [roleId], references: [id])
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-  auditLogs    AuditLog[]
-  createdNeeds Need[]      @relation("NeedCreatedBy")
-  createdTenders Tender[]  @relation("TenderCreatedBy")
-  resourceAssignments ResourceAssignment[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
+  id                         String               @id @default(uuid())
+  email                      String               @unique
+  passwordHash               String
+  firstName                  String
+  lastName                   String
+  status                     UserStatus           @default(ACTIVE)
+  roleId                     String
+  role                       Role                 @relation(fields: [roleId], references: [id])
+  departmentId               String?
+  department                 Department?          @relation(fields: [departmentId], references: [id])
+  auditLogs                  AuditLog[]
+  createdNeeds               Need[]               @relation("NeedCreatedBy")
+  createdTenders             Tender[]             @relation("TenderCreatedBy")
+  resourceAssignments        ResourceAssignment[]
+  reportedMaintenanceTickets MaintenanceTicket[]  @relation("MaintenanceTicketReportedBy")
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  deletedAt                  DateTime?
 
   @@index([email])
   @@index([roleId])
@@ -163,16 +179,16 @@ model NeedItem {
 }
 
 model Supplier {
-  id           String         @id @default(uuid())
-  name         String         @unique
-  contactEmail String?        @unique
+  id           String          @id @default(uuid())
+  name         String          @unique
+  contactEmail String?         @unique
   phone        String?
   address      String?
-  status       SupplierStatus @default(ACTIVE)
+  status       SupplierStatus  @default(ACTIVE)
   offers       SupplierOffer[]
   resources    Resource[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@index([name])
   @@index([contactEmail])
@@ -180,21 +196,21 @@ model Supplier {
 }
 
 model Tender {
-  id          String       @id @default(uuid())
-  reference   String       @unique
+  id          String          @id @default(uuid())
+  reference   String          @unique
   title       String
   description String
-  status      TenderStatus @default(DRAFT)
+  status      TenderStatus    @default(DRAFT)
   deadline    DateTime
   publishedAt DateTime?
   awardedAt   DateTime?
   needId      String
-  need        Need         @relation(fields: [needId], references: [id])
+  need        Need            @relation(fields: [needId], references: [id])
   createdById String
-  createdBy   User         @relation("TenderCreatedBy", fields: [createdById], references: [id])
+  createdBy   User            @relation("TenderCreatedBy", fields: [createdById], references: [id])
   offers      SupplierOffer[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@index([needId])
   @@index([createdById])
@@ -225,20 +241,21 @@ model SupplierOffer {
 }
 
 model Resource {
-  id               String         @id @default(uuid())
-  name             String
-  inventoryCode    String         @unique
-  category         String
-  description      String?
-  serialNumber     String?
-  acquisitionDate  DateTime?
-  acquisitionValue Decimal?
-  status           ResourceStatus @default(AVAILABLE)
-  supplierId       String?
-  supplier         Supplier?      @relation(fields: [supplierId], references: [id])
-  assignments      ResourceAssignment[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                 String               @id @default(uuid())
+  name               String
+  inventoryCode      String               @unique
+  category           String
+  description        String?
+  serialNumber       String?
+  acquisitionDate    DateTime?
+  acquisitionValue   Decimal?
+  status             ResourceStatus       @default(AVAILABLE)
+  supplierId         String?
+  supplier           Supplier?            @relation(fields: [supplierId], references: [id])
+  assignments        ResourceAssignment[]
+  maintenanceTickets MaintenanceTicket[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@index([inventoryCode])
   @@index([category])
@@ -248,23 +265,44 @@ model Resource {
 }
 
 model ResourceAssignment {
-  id         String                   @id @default(uuid())
-  resourceId String
-  resource   Resource                 @relation(fields: [resourceId], references: [id])
-  userId     String
-  user       User                     @relation(fields: [userId], references: [id])
-  assignedAt DateTime                 @default(now())
-  returnedAt DateTime?
-  status     ResourceAssignmentStatus @default(ACTIVE)
-  comment    String?
+  id            String                   @id @default(uuid())
+  resourceId    String
+  resource      Resource                 @relation(fields: [resourceId], references: [id])
+  userId        String
+  user          User                     @relation(fields: [userId], references: [id])
+  assignedAt    DateTime                 @default(now())
+  returnedAt    DateTime?
+  status        ResourceAssignmentStatus @default(ACTIVE)
+  comment       String?
   returnComment String?
-  createdAt  DateTime                 @default(now())
-  updatedAt  DateTime                 @updatedAt
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@index([resourceId])
   @@index([userId])
   @@index([status])
   @@index([assignedAt])
+}
+
+model MaintenanceTicket {
+  id           String                  @id @default(uuid())
+  resourceId   String
+  resource     Resource                @relation(fields: [resourceId], references: [id])
+  reportedById String
+  reportedBy   User                    @relation("MaintenanceTicketReportedBy", fields: [reportedById], references: [id])
+  description  String
+  priority     MaintenancePriority
+  status       MaintenanceTicketStatus @default(OPEN)
+  openedAt     DateTime                @default(now())
+  closedAt     DateTime?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([resourceId])
+  @@index([reportedById])
+  @@index([priority])
+  @@index([status])
+  @@index([openedAt])
 }
 
 model AuditLog {
