@@ -3,7 +3,7 @@
   background: #f7f8fa;
   --color-primary: #1d1d1e;
   --color-secondary: #23b2a4;
-  --color-border: #dce3eb;
+  --color-border: #e5e7eb;
   --color-muted: #667085;
   --color-danger: #b42318;
   font-family:
@@ -36,7 +36,68 @@ button:hover {
 }
 
 .app-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
   min-height: 100vh;
+}
+
+.app-sidebar {
+  background: var(--color-primary);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1.25rem;
+}
+
+.sidebar-brand {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sidebar-brand img {
+  background: #ffffff;
+  border-radius: 6px;
+  display: block;
+  max-width: 190px;
+  padding: 0.65rem;
+  width: 100%;
+}
+
+.sidebar-brand span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.sidebar-link {
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
+  padding: 0.78rem 0.9rem;
+  text-decoration: none;
+}
+
+.sidebar-link.active {
+  background: var(--color-secondary);
+  color: #ffffff;
+}
+
+.sidebar-link-disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.app-content {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
 }
 
 .app-header {
@@ -59,7 +120,7 @@ button:hover {
 }
 
 .app-main {
-  padding: 1.5rem;
+  padding: 2rem;
 }
 
 .page-panel,
@@ -192,6 +253,176 @@ button:hover {
   opacity: 0.7;
 }
 
+.logout-button {
+  background: #ffffff;
+  border-color: var(--color-border);
+  font-weight: 700;
+}
+
+.dashboard-page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.dashboard-hero {
+  align-items: start;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1.5rem;
+}
+
+.dashboard-eyebrow {
+  color: var(--color-secondary);
+  display: inline-block;
+  font-size: 0.84rem;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+}
+
+.dashboard-hero h1 {
+  color: var(--color-primary);
+  font-size: 2rem;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.dashboard-hero p {
+  color: var(--color-muted);
+  margin: 0.75rem 0 0;
+  max-width: 690px;
+}
+
+.dashboard-status {
+  background: rgba(35, 178, 164, 0.12);
+  border: 1px solid rgba(35, 178, 164, 0.28);
+  border-radius: 6px;
+  color: #14796f;
+  flex: 0 0 auto;
+  font-weight: 800;
+  padding: 0.55rem 0.75rem;
+}
+
+.kpi-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kpi-card,
+.operation-card,
+.dashboard-section {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.kpi-card {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 150px;
+  padding: 1.25rem;
+}
+
+.kpi-card span {
+  color: var(--color-muted);
+  font-weight: 700;
+}
+
+.kpi-card strong {
+  color: var(--color-primary);
+  font-size: 2.25rem;
+  line-height: 1;
+}
+
+.kpi-card p {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.dashboard-section {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.section-heading h2 {
+  color: var(--color-primary);
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.section-heading p {
+  color: var(--color-muted);
+  margin: 0.35rem 0 0;
+}
+
+.operations-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.operation-card {
+  display: grid;
+  gap: 0.55rem;
+  min-height: 110px;
+  padding: 1rem;
+}
+
+.operation-card strong {
+  color: var(--color-primary);
+}
+
+.operation-card span {
+  color: var(--color-secondary);
+  font-weight: 800;
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .kpi-grid,
+  .operations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    gap: 1rem;
+  }
+
+  .sidebar-brand {
+    align-items: center;
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-header,
+  .dashboard-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
+}
+
 @media (max-width: 480px) {
   .login-page {
     padding: 1rem;
@@ -203,5 +434,11 @@ button:hover {
 
   .login-logo {
     width: 80%;
+  }
+
+  .sidebar-nav,
+  .kpi-grid,
+  .operations-grid {
+    grid-template-columns: 1fr;
   }
 }
