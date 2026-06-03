@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
+import { ReturnResourceAssignmentDto } from './dto/return-resource-assignment.dto';
 
 @Injectable()
 export class ResourceAssignmentsService {
@@ -88,6 +89,63 @@ export class ResourceAssignmentsService {
     return this.toResourceAssignmentResponse(assignment);
   }
 
+  async returnResource(
+    assignmentId: string,
+    returnResourceAssignmentDto: ReturnResourceAssignmentDto,
+  ): Promise<ResourceAssignmentResponseDto> {
+    const returnComment =
+      returnResourceAssignmentDto.returnComment?.trim() || null;
+
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const existingAssignment = await tx.resourceAssignment.findUnique({
+        where: { id: assignmentId },
+        include: {
+          resource: {
+            select: { id: true, status: true },
+          },
+        },
+      });
+
+      if (!existingAssignment) {
+        throw new NotFoundException('Affectation introuvable.');
+      }
+
+      if (!existingAssignment.resource) {
+        throw new NotFoundException('Ressource introuvable.');
+      }
+
+      if (existingAssignment.status !== ResourceAssignmentStatus.ACTIVE) {
+        throw new BadRequestException(
+          'Seule une affectation active peut etre retournee.',
+        );
+      }
+
+      if (existingAssignment.resource.status !== ResourceStatus.ASSIGNED) {
+        throw new BadRequestException(
+          'Seule une ressource affectee peut etre retournee.',
+        );
+      }
+
+      const returnedAssignment = await tx.resourceAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: ResourceAssignmentStatus.RETURNED,
+          returnedAt: new Date(),
+          returnComment,
+        },
+      });
+
+      await tx.resource.update({
+        where: { id: existingAssignment.resourceId },
+        data: { status: ResourceStatus.AVAILABLE },
+      });
+
+      return returnedAssignment;
+    });
+
+    return this.toResourceAssignmentResponse(assignment);
+  }
+
   private toResourceAssignmentResponse(
     assignment: ResourceAssignment,
   ): ResourceAssignmentResponseDto {
@@ -99,6 +157,7 @@ export class ResourceAssignmentsService {
       returnedAt: assignment.returnedAt?.toISOString() ?? null,
       status: assignment.status,
       comment: assignment.comment,
+      returnComment: assignment.returnComment,
       createdAt: assignment.createdAt.toISOString(),
       updatedAt: assignment.updatedAt.toISOString(),
     };

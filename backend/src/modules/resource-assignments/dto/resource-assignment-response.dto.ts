@@ -29,6 +29,12 @@ export class ResourceAssignmentResponseDto {
   })
   comment!: string | null;
 
+  @ApiPropertyOptional({
+    example: 'Ressource retournee en bon etat',
+    nullable: true,
+  })
+  returnComment!: string | null;
+
   @ApiProperty({ example: '2026-06-03T09:00:00.000Z' })
   createdAt!: string;
 

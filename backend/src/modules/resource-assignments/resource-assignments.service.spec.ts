@@ -21,7 +21,9 @@ type TransactionMock = {
   };
   resourceAssignment: {
     findFirst: jest.Mock;
+    findUnique: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
   };
 };
 
@@ -45,7 +47,9 @@ describe('ResourceAssignmentsService', () => {
       },
       resourceAssignment: {
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
     };
     prisma = {
@@ -75,6 +79,7 @@ describe('ResourceAssignmentsService', () => {
       returnedAt: null,
       status: ResourceAssignmentStatus.ACTIVE,
       comment: 'Affectation pour le laboratoire informatique',
+      returnComment: null,
       createdAt: new Date('2026-06-03T09:00:00.000Z'),
       updatedAt: new Date('2026-06-03T09:00:00.000Z'),
     });
@@ -125,9 +130,132 @@ describe('ResourceAssignmentsService', () => {
       returnedAt: null,
       status: ResourceAssignmentStatus.ACTIVE,
       comment: 'Affectation pour le laboratoire informatique',
+      returnComment: null,
       createdAt: '2026-06-03T09:00:00.000Z',
       updatedAt: '2026-06-03T09:00:00.000Z',
     });
+  });
+
+  it('returns an active assignment and makes the resource available in a transaction', async () => {
+    tx.resourceAssignment.findUnique.mockResolvedValue({
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      userId: 'user-1',
+      assignedAt: new Date('2026-06-03T09:00:00.000Z'),
+      returnedAt: null,
+      status: ResourceAssignmentStatus.ACTIVE,
+      comment: 'Affectation initiale',
+      returnComment: null,
+      createdAt: new Date('2026-06-03T09:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T09:00:00.000Z'),
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.ASSIGNED,
+      },
+    });
+    tx.resourceAssignment.update.mockResolvedValue({
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      userId: 'user-1',
+      assignedAt: new Date('2026-06-03T09:00:00.000Z'),
+      returnedAt: new Date('2026-06-03T10:00:00.000Z'),
+      status: ResourceAssignmentStatus.RETURNED,
+      comment: 'Affectation initiale',
+      returnComment: 'Ressource retournee en bon etat',
+      createdAt: new Date('2026-06-03T09:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T10:00:00.000Z'),
+    });
+    tx.resource.update.mockResolvedValue({
+      id: 'resource-1',
+      status: ResourceStatus.AVAILABLE,
+    });
+
+    const result = await service.returnResource('assignment-1', {
+      returnComment: ' Ressource retournee en bon etat ',
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.resourceAssignment.findUnique).toHaveBeenCalledWith({
+      where: { id: 'assignment-1' },
+      include: {
+        resource: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+    expect(tx.resourceAssignment.update).toHaveBeenCalledWith({
+      where: { id: 'assignment-1' },
+      data: {
+        status: ResourceAssignmentStatus.RETURNED,
+        returnedAt: expect.any(Date) as Date,
+        returnComment: 'Ressource retournee en bon etat',
+      },
+    });
+    expect(tx.resource.update).toHaveBeenCalledWith({
+      where: { id: 'resource-1' },
+      data: { status: ResourceStatus.AVAILABLE },
+    });
+    expect(result).toEqual({
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      userId: 'user-1',
+      assignedAt: '2026-06-03T09:00:00.000Z',
+      returnedAt: '2026-06-03T10:00:00.000Z',
+      status: ResourceAssignmentStatus.RETURNED,
+      comment: 'Affectation initiale',
+      returnComment: 'Ressource retournee en bon etat',
+      createdAt: '2026-06-03T09:00:00.000Z',
+      updatedAt: '2026-06-03T10:00:00.000Z',
+    });
+  });
+
+  it('rejects return when assignment does not exist', async () => {
+    tx.resourceAssignment.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.returnResource('assignment-unknown', {}),
+    ).rejects.toThrow(new NotFoundException('Affectation introuvable.'));
+    expect(tx.resourceAssignment.update).not.toHaveBeenCalled();
+    expect(tx.resource.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ResourceAssignmentStatus.RETURNED,
+    ResourceAssignmentStatus.CANCELLED,
+  ])('rejects return when assignment status is %s', async (status) => {
+    tx.resourceAssignment.findUnique.mockResolvedValue({
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      status,
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.ASSIGNED,
+      },
+    });
+
+    await expect(service.returnResource('assignment-1', {})).rejects.toThrow(
+      new BadRequestException('Seule une affectation active peut etre retournee.'),
+    );
+    expect(tx.resourceAssignment.update).not.toHaveBeenCalled();
+    expect(tx.resource.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects return when linked resource is no longer assigned', async () => {
+    tx.resourceAssignment.findUnique.mockResolvedValue({
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      status: ResourceAssignmentStatus.ACTIVE,
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.AVAILABLE,
+      },
+    });
+
+    await expect(service.returnResource('assignment-1', {})).rejects.toThrow(
+      new BadRequestException('Seule une ressource affectee peut etre retournee.'),
+    );
+    expect(tx.resourceAssignment.update).not.toHaveBeenCalled();
+    expect(tx.resource.update).not.toHaveBeenCalled();
   });
 
   it('rejects assignment when resource does not exist', async () => {

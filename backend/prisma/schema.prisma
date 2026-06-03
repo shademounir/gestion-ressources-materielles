@@ -257,6 +257,7 @@ model ResourceAssignment {
   returnedAt DateTime?
   status     ResourceAssignmentStatus @default(ACTIVE)
   comment    String?
+  returnComment String?
   createdAt  DateTime                 @default(now())
   updatedAt  DateTime                 @updatedAt
 
