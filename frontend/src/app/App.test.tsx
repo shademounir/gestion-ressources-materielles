@@ -1,13 +1,92 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
-describe('App foundation', () => {
-  it('allows entering the protected foundation area', async () => {
+const loginResponse = {
+  accessToken: 'valid-access-token',
+  tokenType: 'Bearer',
+  expiresIn: 900,
+  user: {
+    id: 'user-1',
+    email: 'admin@example.com',
+    firstName: 'Admin',
+    lastName: 'User',
+    role: 'ADMIN',
+  },
+};
+
+describe('Login page', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    window.history.pushState({}, '', '/login');
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders the login form', () => {
     render(<App />);
 
-    await userEvent.click(screen.getByRole('button', { name: /entrer dans le socle/i }));
+    expect(screen.getByRole('heading', { name: /connexion/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/mot de passe/i)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /maroc ynov campus/i })).toBeInTheDocument();
+  });
 
-    expect(screen.getByRole('heading', { name: /socle technique pret/i })).toBeInTheDocument();
+  it('validates credentials before calling the API', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/adresse email valide/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('logs in and redirects to the protected area', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(loginResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+
+    expect(await screen.findByRole('heading', { name: /socle technique pret/i })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/auth/login',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'admin@example.com',
+          password: 'SecurePassword123!',
+        }),
+      }),
+    );
+  });
+
+  it('shows a clear error when credentials are rejected', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'wrong-password');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/identifiants invalides/i);
   });
 });
