@@ -35,6 +35,17 @@ button:hover {
   background: #f5f7fa;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+a:focus-visible,
+button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(35, 178, 164, 0.22);
+  outline: none;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);

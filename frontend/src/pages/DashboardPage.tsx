@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 const dashboardKpis = [
   {
     label: 'Ressources totales',
@@ -22,10 +24,26 @@ const dashboardKpis = [
 ];
 
 const operations = [
-  'Inventaire des ressources',
-  'Affectations utilisateurs',
-  'Maintenance et retours',
-  "Fournisseurs et appels d'offres",
+  {
+    label: 'Inventaire des ressources',
+    status: 'Disponible',
+    path: '/resources',
+  },
+  {
+    label: 'Affectations utilisateurs',
+    status: 'Disponible',
+    path: '/assignments',
+  },
+  {
+    label: 'Maintenance et retours',
+    status: 'Disponible',
+    path: '/maintenance',
+  },
+  {
+    label: "Fournisseurs et appels d'offres",
+    status: 'Pret a connecter',
+    path: null,
+  },
 ];
 
 export function DashboardPage() {
@@ -60,9 +78,14 @@ export function DashboardPage() {
         </div>
         <div className="operations-grid">
           {operations.map((operation) => (
-            <article className="operation-card" key={operation}>
-              <strong>{operation}</strong>
-              <span>Pret a connecter</span>
+            <article className="operation-card" key={operation.label}>
+              <strong>{operation.label}</strong>
+              <span>{operation.status}</span>
+              {operation.path ? (
+                <Link className="secondary-link-action compact-action" to={operation.path}>
+                  Ouvrir
+                </Link>
+              ) : null}
             </article>
           ))}
         </div>

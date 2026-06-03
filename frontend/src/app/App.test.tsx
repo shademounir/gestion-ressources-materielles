@@ -211,6 +211,7 @@ describe('Login page', () => {
 
   beforeEach(() => {
     window.history.pushState({}, '', '/login');
+    window.sessionStorage.clear();
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
   });
@@ -270,6 +271,25 @@ describe('Login page', () => {
         }),
       }),
     );
+  });
+
+  it('keeps the authenticated session after application remount', async () => {
+    window.history.pushState({}, '', '/dashboard');
+    window.sessionStorage.setItem(
+      'grm.auth.session',
+      JSON.stringify({
+        accessToken: loginResponse.accessToken,
+        user: loginResponse.user,
+      }),
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('heading', { name: /pilotage des ressources materielles/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/admin user/i)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('shows a clear error when credentials are rejected', async () => {

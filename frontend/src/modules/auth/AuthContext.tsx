@@ -2,36 +2,79 @@ import { useMemo, useState } from 'react';
 import { AuthContext, type AuthState } from './auth-context';
 import { type AuthenticatedUser } from './authService';
 
+const authStorageKey = 'grm.auth.session';
+
 interface AuthProviderProps {
   children: React.ReactNode;
 }
 
+interface StoredAuthSession {
+  accessToken: string;
+  user: AuthenticatedUser;
+}
+
+function readStoredSession(): StoredAuthSession | null {
+  try {
+    const storedSession = window.sessionStorage.getItem(authStorageKey);
+
+    return storedSession ? (JSON.parse(storedSession) as StoredAuthSession) : null;
+  } catch {
+    window.sessionStorage.removeItem(authStorageKey);
+    return null;
+  }
+}
+
+function writeStoredSession(session: StoredAuthSession | null) {
+  if (!session) {
+    window.sessionStorage.removeItem(authStorageKey);
+    return;
+  }
+
+  window.sessionStorage.setItem(authStorageKey, JSON.stringify(session));
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [session, setSessionState] = useState<StoredAuthSession | null>(() => readStoredSession());
 
   const value = useMemo<AuthState>(
     () => ({
-      accessToken,
-      user,
-      isAuthenticated: Boolean(accessToken),
+      accessToken: session?.accessToken ?? null,
+      user: session?.user ?? null,
+      isAuthenticated: Boolean(session?.accessToken),
       setAccessToken: (token) => {
-        setAccessToken(token);
-
         if (!token) {
-          setUser(null);
+          writeStoredSession(null);
+          setSessionState(null);
+          return;
         }
+
+        setSessionState((currentSession) => {
+          if (!currentSession) {
+            return null;
+          }
+
+          const updatedSession = {
+            ...currentSession,
+            accessToken: token,
+          };
+          writeStoredSession(updatedSession);
+          return updatedSession;
+        });
       },
       setSession: (token, authenticatedUser) => {
-        setAccessToken(token);
-        setUser(authenticatedUser);
+        const nextSession = {
+          accessToken: token,
+          user: authenticatedUser,
+        };
+        writeStoredSession(nextSession);
+        setSessionState(nextSession);
       },
       logout: () => {
-        setAccessToken(null);
-        setUser(null);
+        writeStoredSession(null);
+        setSessionState(null);
       },
     }),
-    [accessToken, user],
+    [session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,7 +1,9 @@
-import { type FormEvent, useState } from 'react';
+import { type ComponentProps, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../modules/auth/authService';
 import { useAuth } from '../modules/auth/useAuth';
+
+type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0];
 
 export function LoginPage() {
   const { setSession } = useAuth();
@@ -11,7 +13,7 @@ export function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormSubmitEvent) {
     event.preventDefault();
 
     const normalizedEmail = email.trim();
