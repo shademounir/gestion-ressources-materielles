@@ -24,8 +24,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
+import { CreateMaintenanceInterventionDto } from './dto/create-maintenance-intervention.dto';
 import { CreateMaintenanceReportDto } from './dto/create-maintenance-report.dto';
 import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto';
+import { MaintenanceInterventionResponseDto } from './dto/maintenance-intervention-response.dto';
 import { MaintenanceReportResponseDto } from './dto/maintenance-report-response.dto';
 import { MaintenanceTicketResponseDto } from './dto/maintenance-ticket-response.dto';
 import { MaintenanceService } from './maintenance.service';
@@ -34,6 +36,31 @@ import { MaintenanceService } from './maintenance.service';
 @Controller('maintenance-tickets')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
+
+  @Post(':id/intervention')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Suivre une intervention de maintenance' })
+  @ApiCreatedResponse({ type: MaintenanceInterventionResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Ticket sans constat, statut invalide ou dates incoherentes',
+  })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({
+    description: 'Role insuffisant pour suivre une intervention',
+  })
+  @ApiConflictResponse({ description: 'Intervention active deja existante' })
+  @ApiNotFoundResponse({ description: 'Ticket de maintenance introuvable' })
+  createIntervention(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) maintenanceTicketId: string,
+    @Body() createMaintenanceInterventionDto: CreateMaintenanceInterventionDto,
+  ): Promise<MaintenanceInterventionResponseDto> {
+    return this.maintenanceService.createMaintenanceIntervention(
+      maintenanceTicketId,
+      createMaintenanceInterventionDto,
+    );
+  }
 
   @Post(':id/report')
   @ApiBearerAuth()

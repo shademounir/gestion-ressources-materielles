@@ -293,19 +293,20 @@ model ResourceAssignment {
 }
 
 model MaintenanceTicket {
-  id           String                  @id @default(uuid())
-  resourceId   String
-  resource     Resource                @relation(fields: [resourceId], references: [id])
-  reportedById String
-  reportedBy   User                    @relation("MaintenanceTicketReportedBy", fields: [reportedById], references: [id])
-  description  String
-  priority     MaintenancePriority
-  status       MaintenanceTicketStatus @default(OPEN)
-  openedAt     DateTime                @default(now())
-  closedAt     DateTime?
-  report       MaintenanceReport?
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  id            String                    @id @default(uuid())
+  resourceId    String
+  resource      Resource                  @relation(fields: [resourceId], references: [id])
+  reportedById  String
+  reportedBy    User                      @relation("MaintenanceTicketReportedBy", fields: [reportedById], references: [id])
+  description   String
+  priority      MaintenancePriority
+  status        MaintenanceTicketStatus   @default(OPEN)
+  openedAt      DateTime                  @default(now())
+  closedAt      DateTime?
+  report        MaintenanceReport?
+  interventions MaintenanceIntervention[]
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
 
   @@index([resourceId])
   @@index([reportedById])
@@ -331,6 +332,24 @@ model MaintenanceReport {
   @@index([authorId])
   @@index([severity])
   @@index([reportedAt])
+}
+
+model MaintenanceIntervention {
+  id                  String            @id @default(uuid())
+  maintenanceTicketId String
+  maintenanceTicket   MaintenanceTicket @relation(fields: [maintenanceTicketId], references: [id])
+  technicianName      String
+  description         String
+  startedAt           DateTime
+  completedAt         DateTime?
+  cost                Decimal?
+  result              String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([maintenanceTicketId])
+  @@index([startedAt])
+  @@index([completedAt])
 }
 
 model AuditLog {
