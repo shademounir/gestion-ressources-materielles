@@ -75,6 +75,12 @@ enum ResourceStatus {
   ARCHIVED
 }
 
+enum ResourceAssignmentStatus {
+  ACTIVE
+  RETURNED
+  CANCELLED
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -110,6 +116,7 @@ model User {
   auditLogs    AuditLog[]
   createdNeeds Need[]      @relation("NeedCreatedBy")
   createdTenders Tender[]  @relation("TenderCreatedBy")
+  resourceAssignments ResourceAssignment[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
@@ -229,6 +236,7 @@ model Resource {
   status           ResourceStatus @default(AVAILABLE)
   supplierId       String?
   supplier         Supplier?      @relation(fields: [supplierId], references: [id])
+  assignments      ResourceAssignment[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -237,6 +245,25 @@ model Resource {
   @@index([status])
   @@index([supplierId])
   @@index([createdAt])
+}
+
+model ResourceAssignment {
+  id         String                   @id @default(uuid())
+  resourceId String
+  resource   Resource                 @relation(fields: [resourceId], references: [id])
+  userId     String
+  user       User                     @relation(fields: [userId], references: [id])
+  assignedAt DateTime                 @default(now())
+  returnedAt DateTime?
+  status     ResourceAssignmentStatus @default(ACTIVE)
+  comment    String?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+
+  @@index([resourceId])
+  @@index([userId])
+  @@index([status])
+  @@index([assignedAt])
 }
 
 model AuditLog {
