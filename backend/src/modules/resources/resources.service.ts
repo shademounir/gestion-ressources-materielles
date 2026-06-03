@@ -17,6 +17,7 @@ import {
   ResourceListResponseDto,
 } from './dto/resource-list-response.dto';
 import { ResourceResponseDto } from './dto/resource-response.dto';
+import { UpdateResourceStatusDto } from './dto/update-resource-status.dto';
 
 const RESOURCE_DEFAULT_PAGE = 1;
 const RESOURCE_DEFAULT_LIMIT = 20;
@@ -156,6 +157,28 @@ export class ResourcesService {
     return this.toResourceDetailResponse(resource);
   }
 
+  async updateResourceStatus(
+    resourceId: string,
+    updateResourceStatusDto: UpdateResourceStatusDto,
+  ): Promise<ResourceDetailResponseDto> {
+    const existingResource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: { id: true },
+    });
+
+    if (!existingResource) {
+      throw new NotFoundException('Ressource introuvable.');
+    }
+
+    const updatedResource = await this.prisma.resource.update({
+      where: { id: resourceId },
+      data: this.buildStatusUpdateData(updateResourceStatusDto.status),
+      include: resourceDetailInclude,
+    });
+
+    return this.toResourceDetailResponse(updatedResource);
+  }
+
   private toResourceResponse(resource: Resource): ResourceResponseDto {
     return {
       id: resource.id,
@@ -218,6 +241,14 @@ export class ResourcesService {
     }
 
     return Math.min(limit, RESOURCE_MAX_LIMIT);
+  }
+
+  private buildStatusUpdateData(
+    status: ResourceStatus,
+  ): Prisma.ResourceUpdateInput {
+    return {
+      status,
+    };
   }
 
   private toResourceListItemResponse(resource: {

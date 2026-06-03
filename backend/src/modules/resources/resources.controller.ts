@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -29,6 +30,7 @@ import { ListResourcesQueryDto } from './dto/list-resources-query.dto';
 import { ResourceDetailResponseDto } from './dto/resource-detail-response.dto';
 import { ResourceListResponseDto } from './dto/resource-list-response.dto';
 import { ResourceResponseDto } from './dto/resource-response.dto';
+import { UpdateResourceStatusDto } from './dto/update-resource-status.dto';
 import { ResourcesService } from './resources.service';
 
 @ApiTags('resources')
@@ -62,6 +64,26 @@ export class ResourcesController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) resourceId: string,
   ): Promise<ResourceDetailResponseDto> {
     return this.resourcesService.getResourceById(resourceId);
+  }
+
+  @Patch(':id/status')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Modifier le statut d'une ressource" })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID de la ressource' })
+  @ApiOkResponse({ type: ResourceDetailResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour modifier le statut' })
+  @ApiNotFoundResponse({ description: 'Ressource introuvable' })
+  updateStatus(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) resourceId: string,
+    @Body() updateResourceStatusDto: UpdateResourceStatusDto,
+  ): Promise<ResourceDetailResponseDto> {
+    return this.resourcesService.updateResourceStatus(
+      resourceId,
+      updateResourceStatusDto,
+    );
   }
 
   @Post()
