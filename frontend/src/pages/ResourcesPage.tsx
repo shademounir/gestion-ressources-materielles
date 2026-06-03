@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   createResource,
@@ -36,6 +36,7 @@ const emptyForm = {
 };
 
 type ResourceFormState = typeof emptyForm;
+type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0];
 
 function normalizeResourcePayload(form: ResourceFormState): CreateResourcePayload {
   const payload: CreateResourcePayload = {
@@ -111,7 +112,10 @@ export function ResourcesPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const categories = useMemo(
-    () => Array.from(new Set(resources.map((resource) => resource.category))).sort(),
+    () =>
+      Array.from(new Set(resources.map((resource) => resource.category))).sort((left, right) =>
+        left.localeCompare(right),
+      ),
     [resources],
   );
 
@@ -177,13 +181,13 @@ export function ResourcesPage() {
     }));
   }
 
-  function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleFilterSubmit(event: FormSubmitEvent) {
     event.preventDefault();
     setPage(1);
     void fetchResources();
   }
 
-  async function handleCreateResource(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateResource(event: FormSubmitEvent) {
     event.preventDefault();
     const payload = normalizeResourcePayload(form);
 
