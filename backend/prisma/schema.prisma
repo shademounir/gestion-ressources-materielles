@@ -103,6 +103,13 @@ enum MaintenanceSeverity {
   CRITICAL
 }
 
+enum SupplierReturnStatus {
+  SENT_TO_SUPPLIER
+  IN_REPAIR
+  RETURNED
+  CANCELLED
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -187,16 +194,17 @@ model NeedItem {
 }
 
 model Supplier {
-  id           String          @id @default(uuid())
-  name         String          @unique
-  contactEmail String?         @unique
-  phone        String?
-  address      String?
-  status       SupplierStatus  @default(ACTIVE)
-  offers       SupplierOffer[]
-  resources    Resource[]
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id              String           @id @default(uuid())
+  name            String           @unique
+  contactEmail    String?          @unique
+  phone           String?
+  address         String?
+  status          SupplierStatus   @default(ACTIVE)
+  offers          SupplierOffer[]
+  resources       Resource[]
+  supplierReturns SupplierReturn[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([name])
   @@index([contactEmail])
@@ -262,6 +270,7 @@ model Resource {
   supplier           Supplier?            @relation(fields: [supplierId], references: [id])
   assignments        ResourceAssignment[]
   maintenanceTickets MaintenanceTicket[]
+  supplierReturns    SupplierReturn[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -293,20 +302,21 @@ model ResourceAssignment {
 }
 
 model MaintenanceTicket {
-  id            String                    @id @default(uuid())
-  resourceId    String
-  resource      Resource                  @relation(fields: [resourceId], references: [id])
-  reportedById  String
-  reportedBy    User                      @relation("MaintenanceTicketReportedBy", fields: [reportedById], references: [id])
-  description   String
-  priority      MaintenancePriority
-  status        MaintenanceTicketStatus   @default(OPEN)
-  openedAt      DateTime                  @default(now())
-  closedAt      DateTime?
-  report        MaintenanceReport?
-  interventions MaintenanceIntervention[]
-  createdAt     DateTime                  @default(now())
-  updatedAt     DateTime                  @updatedAt
+  id              String                    @id @default(uuid())
+  resourceId      String
+  resource        Resource                  @relation(fields: [resourceId], references: [id])
+  reportedById    String
+  reportedBy      User                      @relation("MaintenanceTicketReportedBy", fields: [reportedById], references: [id])
+  description     String
+  priority        MaintenancePriority
+  status          MaintenanceTicketStatus   @default(OPEN)
+  openedAt        DateTime                  @default(now())
+  closedAt        DateTime?
+  report          MaintenanceReport?
+  interventions   MaintenanceIntervention[]
+  supplierReturns SupplierReturn[]
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
 
   @@index([resourceId])
   @@index([reportedById])
@@ -350,6 +360,30 @@ model MaintenanceIntervention {
   @@index([maintenanceTicketId])
   @@index([startedAt])
   @@index([completedAt])
+}
+
+model SupplierReturn {
+  id                  String               @id @default(uuid())
+  maintenanceTicketId String
+  maintenanceTicket   MaintenanceTicket    @relation(fields: [maintenanceTicketId], references: [id])
+  resourceId          String
+  resource            Resource             @relation(fields: [resourceId], references: [id])
+  supplierId          String
+  supplier            Supplier             @relation(fields: [supplierId], references: [id])
+  reason              String
+  sentAt              DateTime
+  expectedReturnAt    DateTime?
+  actualReturnAt      DateTime?
+  status              SupplierReturnStatus @default(SENT_TO_SUPPLIER)
+  comment             String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([maintenanceTicketId])
+  @@index([resourceId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([sentAt])
 }
 
 model AuditLog {
