@@ -27,15 +27,42 @@ import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.inte
 import { CreateMaintenanceInterventionDto } from './dto/create-maintenance-intervention.dto';
 import { CreateMaintenanceReportDto } from './dto/create-maintenance-report.dto';
 import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto';
+import { CreateSupplierReturnDto } from './dto/create-supplier-return.dto';
 import { MaintenanceInterventionResponseDto } from './dto/maintenance-intervention-response.dto';
 import { MaintenanceReportResponseDto } from './dto/maintenance-report-response.dto';
 import { MaintenanceTicketResponseDto } from './dto/maintenance-ticket-response.dto';
+import { SupplierReturnResponseDto } from './dto/supplier-return-response.dto';
 import { MaintenanceService } from './maintenance.service';
 
 @ApiTags('maintenance-tickets')
 @Controller('maintenance-tickets')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
+
+  @Post(':id/supplier-return')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Declarer un retour fournisseur' })
+  @ApiCreatedResponse({ type: SupplierReturnResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Preconditions metier non respectees pour le retour fournisseur',
+  })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({
+    description: 'Role insuffisant pour declarer un retour fournisseur',
+  })
+  @ApiConflictResponse({ description: 'Retour fournisseur actif deja existant' })
+  @ApiNotFoundResponse({ description: 'Ticket ou fournisseur introuvable' })
+  createSupplierReturn(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) maintenanceTicketId: string,
+    @Body() createSupplierReturnDto: CreateSupplierReturnDto,
+  ): Promise<SupplierReturnResponseDto> {
+    return this.maintenanceService.createSupplierReturn(
+      maintenanceTicketId,
+      createSupplierReturnDto,
+    );
+  }
 
   @Post(':id/intervention')
   @ApiBearerAuth()

@@ -9,6 +9,8 @@ import {
   MaintenanceTicketStatus,
   Prisma,
   ResourceStatus,
+  SupplierReturnStatus,
+  SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { MaintenanceService } from './maintenance.service';
@@ -19,6 +21,9 @@ type TransactionMock = {
     update: jest.Mock;
   };
   user: {
+    findUnique: jest.Mock;
+  };
+  supplier: {
     findUnique: jest.Mock;
   };
   maintenanceTicket: {
@@ -32,6 +37,10 @@ type TransactionMock = {
     findUniqueOrThrow: jest.Mock;
   };
   maintenanceReport: {
+    create: jest.Mock;
+  };
+  supplierReturn: {
+    findFirst: jest.Mock;
     create: jest.Mock;
   };
 };
@@ -54,6 +63,9 @@ describe('MaintenanceService', () => {
       user: {
         findUnique: jest.fn(),
       },
+      supplier: {
+        findUnique: jest.fn(),
+      },
       maintenanceTicket: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -67,6 +79,10 @@ describe('MaintenanceService', () => {
       maintenanceReport: {
         create: jest.fn(),
       },
+      supplierReturn: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
     };
     prisma = {
       $transaction: jest.fn((callback: (client: TransactionMock) => unknown) =>
@@ -74,6 +90,391 @@ describe('MaintenanceService', () => {
       ),
     };
     service = new MaintenanceService(prisma as unknown as PrismaService);
+  });
+
+  it('creates a supplier return for a ticket with report and intervention', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+      interventions: [{ id: 'intervention-1' }],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+    });
+    tx.supplier.findUnique.mockResolvedValue({
+      id: 'supplier-1',
+      status: SupplierStatus.ACTIVE,
+    });
+    tx.supplierReturn.findFirst.mockResolvedValue(null);
+    tx.supplierReturn.create.mockResolvedValue({
+      id: 'supplier-return-1',
+      maintenanceTicketId: 'ticket-1',
+      resourceId: 'resource-1',
+      supplierId: 'supplier-1',
+      reason: 'Diagnostic confirme une panne sous garantie.',
+      sentAt: new Date('2026-06-03T14:00:00.000Z'),
+      expectedReturnAt: new Date('2026-06-17T14:00:00.000Z'),
+      actualReturnAt: null,
+      status: SupplierReturnStatus.SENT_TO_SUPPLIER,
+      comment: 'Retour envoye avec bon de prise en charge.',
+      createdAt: new Date('2026-06-03T14:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T14:00:00.000Z'),
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+        priority: MaintenancePriority.HIGH,
+        openedAt: new Date('2026-06-03T09:00:00.000Z'),
+      },
+      resource: {
+        id: 'resource-1',
+        inventoryCode: 'INV-INFO-2026-0001',
+        name: 'Ordinateur portable Dell Latitude 5440',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+      supplier: {
+        id: 'supplier-1',
+        name: 'Tech Solutions Maroc',
+        contactEmail: 'contact@techsolutions.test',
+        status: SupplierStatus.ACTIVE,
+      },
+    });
+
+    const result = await service.createSupplierReturn('ticket-1', {
+      supplierId: 'supplier-1',
+      reason: ' Diagnostic confirme une panne sous garantie. ',
+      sentAt: '2026-06-03T14:00:00.000Z',
+      expectedReturnAt: '2026-06-17T14:00:00.000Z',
+      comment: ' Retour envoye avec bon de prise en charge. ',
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.maintenanceTicket.findUnique).toHaveBeenCalledWith({
+      where: { id: 'ticket-1' },
+      select: {
+        id: true,
+        status: true,
+        report: { select: { id: true } },
+        interventions: { select: { id: true }, take: 1 },
+        resource: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+    expect(tx.supplier.findUnique).toHaveBeenCalledWith({
+      where: { id: 'supplier-1' },
+      select: { id: true, status: true },
+    });
+    expect(tx.supplierReturn.findFirst).toHaveBeenCalledWith({
+      where: {
+        maintenanceTicketId: 'ticket-1',
+        status: {
+          in: [
+            SupplierReturnStatus.SENT_TO_SUPPLIER,
+            SupplierReturnStatus.IN_REPAIR,
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    expect(tx.supplierReturn.create).toHaveBeenCalledWith({
+      data: {
+        maintenanceTicketId: 'ticket-1',
+        resourceId: 'resource-1',
+        supplierId: 'supplier-1',
+        reason: 'Diagnostic confirme une panne sous garantie.',
+        sentAt: new Date('2026-06-03T14:00:00.000Z'),
+        expectedReturnAt: new Date('2026-06-17T14:00:00.000Z'),
+        status: SupplierReturnStatus.SENT_TO_SUPPLIER,
+        comment: 'Retour envoye avec bon de prise en charge.',
+      },
+      include: {
+        maintenanceTicket: {
+          select: {
+            id: true,
+            status: true,
+            priority: true,
+            openedAt: true,
+          },
+        },
+        resource: {
+          select: {
+            id: true,
+            inventoryCode: true,
+            name: true,
+            status: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+            status: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'supplier-return-1',
+      maintenanceTicketId: 'ticket-1',
+      resourceId: 'resource-1',
+      supplierId: 'supplier-1',
+      reason: 'Diagnostic confirme une panne sous garantie.',
+      sentAt: '2026-06-03T14:00:00.000Z',
+      expectedReturnAt: '2026-06-17T14:00:00.000Z',
+      actualReturnAt: null,
+      status: SupplierReturnStatus.SENT_TO_SUPPLIER,
+      comment: 'Retour envoye avec bon de prise en charge.',
+      createdAt: '2026-06-03T14:00:00.000Z',
+      updatedAt: '2026-06-03T14:00:00.000Z',
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+        priority: MaintenancePriority.HIGH,
+        openedAt: '2026-06-03T09:00:00.000Z',
+      },
+      resource: {
+        id: 'resource-1',
+        inventoryCode: 'INV-INFO-2026-0001',
+        name: 'Ordinateur portable Dell Latitude 5440',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+      supplier: {
+        id: 'supplier-1',
+        name: 'Tech Solutions Maroc',
+        contactEmail: 'contact@techsolutions.test',
+        status: SupplierStatus.ACTIVE,
+      },
+    });
+  });
+
+  it('rejects supplier return when expected return date is before sent date', async () => {
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-17T14:00:00.000Z',
+        expectedReturnAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'La date de retour prevue ne peut pas etre anterieure a la date d envoi.',
+      ),
+    );
+    expect(tx.maintenanceTicket.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects supplier return when ticket does not exist', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createSupplierReturn('ticket-unknown', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new NotFoundException('Ticket de maintenance introuvable.'),
+    );
+    expect(tx.supplierReturn.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects supplier return when ticket has no report', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: null,
+      interventions: [{ id: 'intervention-1' }],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+    });
+
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Un constat est obligatoire avant de creer un retour fournisseur.',
+      ),
+    );
+    expect(tx.supplierReturn.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects supplier return when ticket has no intervention', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+      interventions: [],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+    });
+
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Une intervention est obligatoire avant de creer un retour fournisseur.',
+      ),
+    );
+    expect(tx.supplierReturn.create).not.toHaveBeenCalled();
+  });
+
+  it.each([MaintenanceTicketStatus.CLOSED, MaintenanceTicketStatus.CANCELLED])(
+    'rejects supplier return when ticket status is %s',
+    async (status) => {
+      tx.maintenanceTicket.findUnique.mockResolvedValue({
+        id: 'ticket-1',
+        status,
+        report: { id: 'report-1' },
+        interventions: [{ id: 'intervention-1' }],
+        resource: {
+          id: 'resource-1',
+          status: ResourceStatus.UNDER_MAINTENANCE,
+        },
+      });
+
+      await expect(
+        service.createSupplierReturn('ticket-1', {
+          supplierId: 'supplier-1',
+          reason: 'Retour sous garantie.',
+          sentAt: '2026-06-03T14:00:00.000Z',
+        }),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Seul un ticket ouvert ou en cours peut recevoir un retour fournisseur.',
+        ),
+      );
+      expect(tx.supplierReturn.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects supplier return when resource is not under maintenance', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+      interventions: [{ id: 'intervention-1' }],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.AVAILABLE,
+      },
+    });
+
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'La ressource doit etre en maintenance pour un retour fournisseur.',
+      ),
+    );
+    expect(tx.supplier.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects supplier return when supplier does not exist', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+      interventions: [{ id: 'intervention-1' }],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+    });
+    tx.supplier.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-unknown',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(new NotFoundException('Fournisseur introuvable.'));
+    expect(tx.supplierReturn.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects supplier return when supplier is inactive', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+      interventions: [{ id: 'intervention-1' }],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+    });
+    tx.supplier.findUnique.mockResolvedValue({
+      id: 'supplier-1',
+      status: SupplierStatus.INACTIVE,
+    });
+
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Le fournisseur doit etre actif pour recevoir un retour.',
+      ),
+    );
+    expect(tx.supplierReturn.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects supplier return when active supplier return already exists', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+      interventions: [{ id: 'intervention-1' }],
+      resource: {
+        id: 'resource-1',
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+    });
+    tx.supplier.findUnique.mockResolvedValue({
+      id: 'supplier-1',
+      status: SupplierStatus.ACTIVE,
+    });
+    tx.supplierReturn.findFirst.mockResolvedValue({
+      id: 'supplier-return-existing',
+    });
+
+    await expect(
+      service.createSupplierReturn('ticket-1', {
+        supplierId: 'supplier-1',
+        reason: 'Retour sous garantie.',
+        sentAt: '2026-06-03T14:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        'Un retour fournisseur actif existe deja pour ce ticket.',
+      ),
+    );
+    expect(tx.supplierReturn.create).not.toHaveBeenCalled();
   });
 
   it('creates an intervention and moves an open ticket to in progress in a transaction', async () => {

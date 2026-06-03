@@ -12,14 +12,19 @@ import {
   MaintenanceTicketStatus,
   Prisma,
   ResourceStatus,
+  SupplierReturn,
+  SupplierReturnStatus,
+  SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateMaintenanceInterventionDto } from './dto/create-maintenance-intervention.dto';
 import { CreateMaintenanceReportDto } from './dto/create-maintenance-report.dto';
 import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto';
+import { CreateSupplierReturnDto } from './dto/create-supplier-return.dto';
 import { MaintenanceInterventionResponseDto } from './dto/maintenance-intervention-response.dto';
 import { MaintenanceReportResponseDto } from './dto/maintenance-report-response.dto';
 import { MaintenanceTicketResponseDto } from './dto/maintenance-ticket-response.dto';
+import { SupplierReturnResponseDto } from './dto/supplier-return-response.dto';
 
 const maintenanceReportInclude = {
   author: {
@@ -51,6 +56,38 @@ const maintenanceInterventionInclude = {
   },
 } satisfies Prisma.MaintenanceInterventionInclude;
 
+const supplierReturnInclude = {
+  maintenanceTicket: {
+    select: {
+      id: true,
+      status: true,
+      priority: true,
+      openedAt: true,
+    },
+  },
+  resource: {
+    select: {
+      id: true,
+      inventoryCode: true,
+      name: true,
+      status: true,
+    },
+  },
+  supplier: {
+    select: {
+      id: true,
+      name: true,
+      contactEmail: true,
+      status: true,
+    },
+  },
+} satisfies Prisma.SupplierReturnInclude;
+
+const ACTIVE_SUPPLIER_RETURN_STATUSES = [
+  SupplierReturnStatus.SENT_TO_SUPPLIER,
+  SupplierReturnStatus.IN_REPAIR,
+];
+
 type MaintenanceReportWithRelations = MaintenanceReport & {
   author: {
     id: string;
@@ -72,6 +109,27 @@ type MaintenanceInterventionWithRelations = MaintenanceIntervention & {
     status: MaintenanceTicketStatus;
     priority: MaintenancePriority;
     openedAt: Date;
+  };
+};
+
+type SupplierReturnWithRelations = SupplierReturn & {
+  maintenanceTicket: {
+    id: string;
+    status: MaintenanceTicketStatus;
+    priority: MaintenancePriority;
+    openedAt: Date;
+  };
+  resource: {
+    id: string;
+    inventoryCode: string;
+    name: string;
+    status: ResourceStatus;
+  };
+  supplier: {
+    id: string;
+    name: string;
+    contactEmail: string | null;
+    status: SupplierStatus;
   };
 };
 
@@ -292,6 +350,118 @@ export class MaintenanceService {
     return this.toMaintenanceInterventionResponse(intervention);
   }
 
+  async createSupplierReturn(
+    maintenanceTicketId: string,
+    createSupplierReturnDto: CreateSupplierReturnDto,
+  ): Promise<SupplierReturnResponseDto> {
+    const reason = createSupplierReturnDto.reason.trim();
+    const sentAt = new Date(createSupplierReturnDto.sentAt);
+    const expectedReturnAt = createSupplierReturnDto.expectedReturnAt
+      ? new Date(createSupplierReturnDto.expectedReturnAt)
+      : null;
+    const comment = createSupplierReturnDto.comment?.trim() || null;
+
+    if (expectedReturnAt && expectedReturnAt < sentAt) {
+      throw new BadRequestException(
+        'La date de retour prevue ne peut pas etre anterieure a la date d envoi.',
+      );
+    }
+
+    const supplierReturn = await this.prisma.$transaction(async (tx) => {
+      const ticket = await tx.maintenanceTicket.findUnique({
+        where: { id: maintenanceTicketId },
+        select: {
+          id: true,
+          status: true,
+          report: { select: { id: true } },
+          interventions: { select: { id: true }, take: 1 },
+          resource: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Ticket de maintenance introuvable.');
+      }
+
+      if (!ticket.report) {
+        throw new BadRequestException(
+          'Un constat est obligatoire avant de creer un retour fournisseur.',
+        );
+      }
+
+      if (ticket.interventions.length === 0) {
+        throw new BadRequestException(
+          'Une intervention est obligatoire avant de creer un retour fournisseur.',
+        );
+      }
+
+      if (
+        ticket.status !== MaintenanceTicketStatus.OPEN &&
+        ticket.status !== MaintenanceTicketStatus.IN_PROGRESS
+      ) {
+        throw new BadRequestException(
+          'Seul un ticket ouvert ou en cours peut recevoir un retour fournisseur.',
+        );
+      }
+
+      if (ticket.resource.status !== ResourceStatus.UNDER_MAINTENANCE) {
+        throw new BadRequestException(
+          'La ressource doit etre en maintenance pour un retour fournisseur.',
+        );
+      }
+
+      const supplier = await tx.supplier.findUnique({
+        where: { id: createSupplierReturnDto.supplierId },
+        select: { id: true, status: true },
+      });
+
+      if (!supplier) {
+        throw new NotFoundException('Fournisseur introuvable.');
+      }
+
+      if (supplier.status !== SupplierStatus.ACTIVE) {
+        throw new BadRequestException(
+          'Le fournisseur doit etre actif pour recevoir un retour.',
+        );
+      }
+
+      const activeSupplierReturn = await tx.supplierReturn.findFirst({
+        where: {
+          maintenanceTicketId,
+          status: { in: ACTIVE_SUPPLIER_RETURN_STATUSES },
+        },
+        select: { id: true },
+      });
+
+      if (activeSupplierReturn) {
+        throw new ConflictException(
+          'Un retour fournisseur actif existe deja pour ce ticket.',
+        );
+      }
+
+      return tx.supplierReturn.create({
+        data: {
+          maintenanceTicketId,
+          resourceId: ticket.resource.id,
+          supplierId: createSupplierReturnDto.supplierId,
+          reason,
+          sentAt,
+          expectedReturnAt,
+          status: SupplierReturnStatus.SENT_TO_SUPPLIER,
+          comment,
+        },
+        include: supplierReturnInclude,
+      });
+    });
+
+    return this.toSupplierReturnResponse(supplierReturn);
+  }
+
   private toMaintenanceTicketResponse(
     ticket: MaintenanceTicket,
   ): MaintenanceTicketResponseDto {
@@ -353,6 +523,43 @@ export class MaintenanceService {
         status: intervention.maintenanceTicket.status,
         priority: intervention.maintenanceTicket.priority,
         openedAt: intervention.maintenanceTicket.openedAt.toISOString(),
+      },
+    };
+  }
+
+  private toSupplierReturnResponse(
+    supplierReturn: SupplierReturnWithRelations,
+  ): SupplierReturnResponseDto {
+    return {
+      id: supplierReturn.id,
+      maintenanceTicketId: supplierReturn.maintenanceTicketId,
+      resourceId: supplierReturn.resourceId,
+      supplierId: supplierReturn.supplierId,
+      reason: supplierReturn.reason,
+      sentAt: supplierReturn.sentAt.toISOString(),
+      expectedReturnAt: supplierReturn.expectedReturnAt?.toISOString() ?? null,
+      actualReturnAt: supplierReturn.actualReturnAt?.toISOString() ?? null,
+      status: supplierReturn.status,
+      comment: supplierReturn.comment,
+      createdAt: supplierReturn.createdAt.toISOString(),
+      updatedAt: supplierReturn.updatedAt.toISOString(),
+      maintenanceTicket: {
+        id: supplierReturn.maintenanceTicket.id,
+        status: supplierReturn.maintenanceTicket.status,
+        priority: supplierReturn.maintenanceTicket.priority,
+        openedAt: supplierReturn.maintenanceTicket.openedAt.toISOString(),
+      },
+      resource: {
+        id: supplierReturn.resource.id,
+        inventoryCode: supplierReturn.resource.inventoryCode,
+        name: supplierReturn.resource.name,
+        status: supplierReturn.resource.status,
+      },
+      supplier: {
+        id: supplierReturn.supplier.id,
+        name: supplierReturn.supplier.name,
+        contactEmail: supplierReturn.supplier.contactEmail,
+        status: supplierReturn.supplier.status,
       },
     };
   }
