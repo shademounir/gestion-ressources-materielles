@@ -5,7 +5,7 @@ const navigationItems = [
   { label: 'Dashboard', path: '/dashboard', enabled: true },
   { label: 'Ressources', path: '/resources', enabled: true },
   { label: 'Affectations', path: '/assignments', enabled: true },
-  { label: 'Maintenance', path: '/dashboard', enabled: false },
+  { label: 'Maintenance', path: '/maintenance', enabled: true },
   { label: 'Fournisseurs', path: '/dashboard', enabled: false },
   { label: "Appels d'offres", path: '/dashboard', enabled: false },
 ];

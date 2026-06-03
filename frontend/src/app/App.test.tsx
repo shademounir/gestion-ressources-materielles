@@ -137,6 +137,68 @@ const createdAssignmentDetailResponse = {
   },
 };
 
+const createdMaintenanceTicketResponse = {
+  id: 'ticket-1',
+  resourceId: 'resource-1',
+  reportedById: 'user-1',
+  description: 'Ecran noir au demarrage',
+  priority: 'HIGH',
+  status: 'OPEN',
+  openedAt: '2026-06-03T09:00:00.000Z',
+  closedAt: null,
+  createdAt: '2026-06-03T09:00:00.000Z',
+  updatedAt: '2026-06-03T09:00:00.000Z',
+};
+
+const createdMaintenanceReportResponse = {
+  id: 'report-1',
+  diagnosis: 'Carte mere defectueuse',
+  probableCause: 'Surtension probable',
+  severity: 'HIGH',
+  recommendations: 'Remplacer la carte mere',
+  reportedAt: '2026-06-03T10:00:00.000Z',
+  maintenanceTicket: {
+    id: 'ticket-1',
+    status: 'OPEN',
+    priority: 'HIGH',
+    openedAt: '2026-06-03T09:00:00.000Z',
+  },
+};
+
+const createdMaintenanceInterventionResponse = {
+  id: 'intervention-1',
+  maintenanceTicketId: 'ticket-1',
+  technicianName: 'Technicien Demo',
+  description: 'Remplacement alimentation',
+  startedAt: '2026-06-03T11:00:00.000Z',
+  completedAt: null,
+  cost: '450',
+  result: 'Test OK',
+  createdAt: '2026-06-03T11:00:00.000Z',
+  updatedAt: '2026-06-03T11:00:00.000Z',
+  maintenanceTicket: {
+    id: 'ticket-1',
+    status: 'IN_PROGRESS',
+    priority: 'HIGH',
+    openedAt: '2026-06-03T09:00:00.000Z',
+  },
+};
+
+const createdSupplierReturnResponse = {
+  id: 'supplier-return-1',
+  maintenanceTicketId: 'ticket-1',
+  resourceId: 'resource-1',
+  supplierId: 'supplier-1',
+  reason: 'Panne sous garantie',
+  sentAt: '2026-06-03T12:00:00.000Z',
+  expectedReturnAt: null,
+  actualReturnAt: null,
+  status: 'SENT_TO_SUPPLIER',
+  comment: 'Bon de prise en charge joint',
+  createdAt: '2026-06-03T12:00:00.000Z',
+  updatedAt: '2026-06-03T12:00:00.000Z',
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -430,4 +492,144 @@ describe('Login page', () => {
 
     confirmSpy.mockRestore();
   });
+
+  it('manages maintenance actions from the authenticated UI', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.includes('/resources?')) {
+        return Promise.resolve(jsonResponse(resourceListResponse));
+      }
+
+      if (url.endsWith('/maintenance-tickets') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdMaintenanceTicketResponse, 201));
+      }
+
+      if (url.endsWith('/maintenance-tickets/ticket-1/report') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdMaintenanceReportResponse, 201));
+      }
+
+      if (url.endsWith('/maintenance-tickets/ticket-1/intervention') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdMaintenanceInterventionResponse, 201));
+      }
+
+      if (url.endsWith('/maintenance-tickets/ticket-1/supplier-return') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdSupplierReturnResponse, 201));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('link', { name: /maintenance/i }));
+
+    expect(await screen.findByRole('heading', { name: /gestion de la maintenance/i })).toBeInTheDocument();
+    expect(screen.getByText(/aucun endpoint de liste ou detail maintenance/i)).toBeInTheDocument();
+
+    const ticketRegion = screen.getByRole('region', { name: /signaler une panne/i });
+    await user.selectOptions(within(ticketRegion).getByLabelText(/^ressource$/i), 'resource-1');
+    await user.selectOptions(within(ticketRegion).getByLabelText(/priorite/i), 'HIGH');
+    await user.type(
+      within(ticketRegion).getByLabelText(/description panne/i),
+      'Ecran noir au demarrage',
+    );
+    await user.click(within(ticketRegion).getByRole('button', { name: /signaler la panne/i }));
+
+    expect(await screen.findByText(/ticket de maintenance cree/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/maintenance-tickets',
+      expect.objectContaining({
+        body: JSON.stringify({
+          resourceId: 'resource-1',
+          description: 'Ecran noir au demarrage',
+          priority: 'HIGH',
+        }),
+        method: 'POST',
+      }),
+    );
+
+    const reportRegion = screen.getByRole('region', { name: /rediger un constat/i });
+    await user.type(within(reportRegion).getByLabelText(/diagnostic/i), 'Carte mere defectueuse');
+    await user.type(within(reportRegion).getByLabelText(/cause probable/i), 'Surtension probable');
+    await user.selectOptions(within(reportRegion).getByLabelText(/gravite/i), 'HIGH');
+    await user.type(
+      within(reportRegion).getByLabelText(/recommandations/i),
+      'Remplacer la carte mere',
+    );
+    await user.click(within(reportRegion).getByRole('button', { name: /creer le constat/i }));
+
+    expect(await screen.findByText(/constat cree pour le ticket ticket-1/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/maintenance-tickets/ticket-1/report',
+      expect.objectContaining({
+        body: JSON.stringify({
+          diagnosis: 'Carte mere defectueuse',
+          probableCause: 'Surtension probable',
+          severity: 'HIGH',
+          recommendations: 'Remplacer la carte mere',
+        }),
+        method: 'POST',
+      }),
+    );
+
+    const interventionRegion = screen.getByRole('region', {
+      name: /suivre une intervention/i,
+    });
+    await user.type(within(interventionRegion).getByLabelText(/technicien/i), 'Technicien Demo');
+    await user.type(
+      within(interventionRegion).getByLabelText(/description intervention/i),
+      'Remplacement alimentation',
+    );
+    await user.type(within(interventionRegion).getByLabelText(/date debut/i), '2026-06-03T11:00');
+    await user.type(within(interventionRegion).getByLabelText(/cout/i), '450');
+    await user.type(within(interventionRegion).getByLabelText(/resultat/i), 'Test OK');
+    await user.click(
+      within(interventionRegion).getByRole('button', { name: /enregistrer intervention/i }),
+    );
+
+    expect(await screen.findByText(/intervention creee/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/maintenance-tickets/ticket-1/intervention',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+
+    const supplierReturnRegion = screen.getByRole('region', { name: /retour fournisseur/i });
+    await user.type(within(supplierReturnRegion).getByLabelText(/supplier id/i), 'supplier-1');
+    await user.type(within(supplierReturnRegion).getByLabelText(/motif/i), 'Panne sous garantie');
+    await user.type(
+      within(supplierReturnRegion).getByLabelText(/date envoi/i),
+      '2026-06-03T12:00',
+    );
+    await user.type(
+      within(supplierReturnRegion).getByLabelText(/commentaire/i),
+      'Bon de prise en charge joint',
+    );
+    await user.click(
+      within(supplierReturnRegion).getByRole('button', {
+        name: /declarer retour fournisseur/i,
+      }),
+    );
+
+    expect(await screen.findByText(/retour fournisseur cree/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/maintenance-tickets/ticket-1/supplier-return',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+  }, 10_000);
 });
