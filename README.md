@@ -37,6 +37,24 @@ Pipeline DevSecOps disponible :
 - Semgrep ;
 - GitHub Actions Artifacts.
 
+## Comptes de démonstration
+
+Des comptes de démonstration peuvent être créés avec le seed Prisma :
+
+```bash
+npm run prisma:seed --workspace backend
+```
+
+Administrateur
+
+- Email : [admin@grm.local](mailto:admin@grm.local)
+- Mot de passe : `Admin123!`
+
+Manager
+
+- Email : [manager@grm.local](mailto:manager@grm.local)
+- Mot de passe : `Manager123!`
+
 ## Objectifs pedagogiques
 
 - Formaliser un besoin metier realiste avant le developpement.
