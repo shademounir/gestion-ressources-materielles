@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  MaintenanceIntervention,
   MaintenancePriority,
   MaintenanceReport,
   MaintenanceTicket,
@@ -13,8 +14,10 @@ import {
   ResourceStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { CreateMaintenanceInterventionDto } from './dto/create-maintenance-intervention.dto';
 import { CreateMaintenanceReportDto } from './dto/create-maintenance-report.dto';
 import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto';
+import { MaintenanceInterventionResponseDto } from './dto/maintenance-intervention-response.dto';
 import { MaintenanceReportResponseDto } from './dto/maintenance-report-response.dto';
 import { MaintenanceTicketResponseDto } from './dto/maintenance-ticket-response.dto';
 
@@ -37,6 +40,17 @@ const maintenanceReportInclude = {
   },
 } satisfies Prisma.MaintenanceReportInclude;
 
+const maintenanceInterventionInclude = {
+  maintenanceTicket: {
+    select: {
+      id: true,
+      status: true,
+      priority: true,
+      openedAt: true,
+    },
+  },
+} satisfies Prisma.MaintenanceInterventionInclude;
+
 type MaintenanceReportWithRelations = MaintenanceReport & {
   author: {
     id: string;
@@ -44,6 +58,15 @@ type MaintenanceReportWithRelations = MaintenanceReport & {
     lastName: string;
     email: string;
   };
+  maintenanceTicket: {
+    id: string;
+    status: MaintenanceTicketStatus;
+    priority: MaintenancePriority;
+    openedAt: Date;
+  };
+};
+
+type MaintenanceInterventionWithRelations = MaintenanceIntervention & {
   maintenanceTicket: {
     id: string;
     status: MaintenanceTicketStatus;
@@ -178,6 +201,97 @@ export class MaintenanceService {
     return this.toMaintenanceReportResponse(report);
   }
 
+  async createMaintenanceIntervention(
+    maintenanceTicketId: string,
+    createMaintenanceInterventionDto: CreateMaintenanceInterventionDto,
+  ): Promise<MaintenanceInterventionResponseDto> {
+    const technicianName = createMaintenanceInterventionDto.technicianName.trim();
+    const description = createMaintenanceInterventionDto.description.trim();
+    const startedAt = new Date(createMaintenanceInterventionDto.startedAt);
+    const completedAt = createMaintenanceInterventionDto.completedAt
+      ? new Date(createMaintenanceInterventionDto.completedAt)
+      : null;
+    const cost =
+      createMaintenanceInterventionDto.cost !== undefined
+        ? new Prisma.Decimal(createMaintenanceInterventionDto.cost)
+        : null;
+    const result = createMaintenanceInterventionDto.result?.trim() || null;
+
+    if (completedAt && completedAt < startedAt) {
+      throw new BadRequestException(
+        'La date de fin ne peut pas etre anterieure a la date de debut.',
+      );
+    }
+
+    const intervention = await this.prisma.$transaction(async (tx) => {
+      const ticket = await tx.maintenanceTicket.findUnique({
+        where: { id: maintenanceTicketId },
+        select: {
+          id: true,
+          status: true,
+          report: { select: { id: true } },
+        },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Ticket de maintenance introuvable.');
+      }
+
+      if (!ticket.report) {
+        throw new BadRequestException(
+          'Un constat est obligatoire avant de creer une intervention.',
+        );
+      }
+
+      if (
+        ticket.status !== MaintenanceTicketStatus.OPEN &&
+        ticket.status !== MaintenanceTicketStatus.IN_PROGRESS
+      ) {
+        throw new BadRequestException(
+          'Seul un ticket ouvert ou en cours peut recevoir une intervention.',
+        );
+      }
+
+      const activeIntervention = await tx.maintenanceIntervention.findFirst({
+        where: {
+          maintenanceTicketId,
+          completedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (activeIntervention) {
+        throw new ConflictException(
+          'Une intervention active existe deja pour ce ticket de maintenance.',
+        );
+      }
+
+      const createdIntervention = await tx.maintenanceIntervention.create({
+        data: {
+          maintenanceTicketId,
+          technicianName,
+          description,
+          startedAt,
+          completedAt,
+          cost,
+          result,
+        },
+      });
+
+      await tx.maintenanceTicket.update({
+        where: { id: maintenanceTicketId },
+        data: { status: MaintenanceTicketStatus.IN_PROGRESS },
+      });
+
+      return tx.maintenanceIntervention.findUniqueOrThrow({
+        where: { id: createdIntervention.id },
+        include: maintenanceInterventionInclude,
+      });
+    });
+
+    return this.toMaintenanceInterventionResponse(intervention);
+  }
+
   private toMaintenanceTicketResponse(
     ticket: MaintenanceTicket,
   ): MaintenanceTicketResponseDto {
@@ -216,6 +330,29 @@ export class MaintenanceService {
         status: report.maintenanceTicket.status,
         priority: report.maintenanceTicket.priority,
         openedAt: report.maintenanceTicket.openedAt.toISOString(),
+      },
+    };
+  }
+
+  private toMaintenanceInterventionResponse(
+    intervention: MaintenanceInterventionWithRelations,
+  ): MaintenanceInterventionResponseDto {
+    return {
+      id: intervention.id,
+      maintenanceTicketId: intervention.maintenanceTicketId,
+      technicianName: intervention.technicianName,
+      description: intervention.description,
+      startedAt: intervention.startedAt.toISOString(),
+      completedAt: intervention.completedAt?.toISOString() ?? null,
+      cost: intervention.cost?.toString() ?? null,
+      result: intervention.result,
+      createdAt: intervention.createdAt.toISOString(),
+      updatedAt: intervention.updatedAt.toISOString(),
+      maintenanceTicket: {
+        id: intervention.maintenanceTicket.id,
+        status: intervention.maintenanceTicket.status,
+        priority: intervention.maintenanceTicket.priority,
+        openedAt: intervention.maintenanceTicket.openedAt.toISOString(),
       },
     };
   }

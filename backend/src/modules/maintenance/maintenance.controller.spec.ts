@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { MaintenanceInterventionResponseDto } from './dto/maintenance-intervention-response.dto';
 import { MaintenanceReportResponseDto } from './dto/maintenance-report-response.dto';
 import { MaintenanceTicketResponseDto } from './dto/maintenance-ticket-response.dto';
 import { MaintenanceController } from './maintenance.controller';
@@ -29,6 +30,7 @@ describe('MaintenanceController', () => {
     const reportFailureMock = jest.fn().mockResolvedValue(response);
     const service = {
       reportFailure: reportFailureMock,
+      createMaintenanceIntervention: jest.fn(),
       createMaintenanceReport: jest.fn(),
     } as unknown as MaintenanceService;
     const controller = new MaintenanceController(service);
@@ -74,6 +76,7 @@ describe('MaintenanceController', () => {
     const createMaintenanceReportMock = jest.fn().mockResolvedValue(response);
     const service = {
       reportFailure: jest.fn(),
+      createMaintenanceIntervention: jest.fn(),
       createMaintenanceReport: createMaintenanceReportMock,
     } as unknown as MaintenanceService;
     const controller = new MaintenanceController(service);
@@ -96,6 +99,49 @@ describe('MaintenanceController', () => {
       'ticket-1',
       dto,
       'user-1',
+    );
+    expect(result).toEqual(response);
+  });
+
+  it('delegates maintenance intervention creation to MaintenanceService', async () => {
+    const response: MaintenanceInterventionResponseDto = {
+      id: 'intervention-1',
+      maintenanceTicketId: 'ticket-1',
+      technicianName: 'Technicien maintenance interne',
+      description: 'Remplacement du bloc alimentation.',
+      startedAt: '2026-06-03T13:00:00.000Z',
+      completedAt: null,
+      cost: null,
+      result: null,
+      createdAt: '2026-06-03T13:00:00.000Z',
+      updatedAt: '2026-06-03T13:00:00.000Z',
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+        priority: MaintenancePriority.HIGH,
+        openedAt: '2026-06-03T09:00:00.000Z',
+      },
+    };
+    const createMaintenanceInterventionMock = jest
+      .fn()
+      .mockResolvedValue(response);
+    const service = {
+      reportFailure: jest.fn(),
+      createMaintenanceIntervention: createMaintenanceInterventionMock,
+      createMaintenanceReport: jest.fn(),
+    } as unknown as MaintenanceService;
+    const controller = new MaintenanceController(service);
+    const dto = {
+      technicianName: 'Technicien maintenance interne',
+      description: 'Remplacement du bloc alimentation.',
+      startedAt: '2026-06-03T13:00:00.000Z',
+    };
+
+    const result = await controller.createIntervention('ticket-1', dto);
+
+    expect(createMaintenanceInterventionMock).toHaveBeenCalledWith(
+      'ticket-1',
+      dto,
     );
     expect(result).toEqual(response);
   });
@@ -132,9 +178,26 @@ describe('MaintenanceController', () => {
     expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
   });
 
+  it('requires ADMIN or MANAGER role on the intervention endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      MaintenanceController.prototype,
+      'createIntervention',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected createIntervention handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
   it('rejects creation without authenticated user context', () => {
     const service = {
       reportFailure: jest.fn(),
+      createMaintenanceIntervention: jest.fn(),
       createMaintenanceReport: jest.fn(),
     } as unknown as MaintenanceService;
     const controller = new MaintenanceController(service);
@@ -154,6 +217,7 @@ describe('MaintenanceController', () => {
   it('rejects report creation without authenticated user context', () => {
     const service = {
       reportFailure: jest.fn(),
+      createMaintenanceIntervention: jest.fn(),
       createMaintenanceReport: jest.fn(),
     } as unknown as MaintenanceService;
     const controller = new MaintenanceController(service);

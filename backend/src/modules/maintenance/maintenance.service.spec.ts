@@ -7,6 +7,7 @@ import {
   MaintenancePriority,
   MaintenanceSeverity,
   MaintenanceTicketStatus,
+  Prisma,
   ResourceStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -23,6 +24,12 @@ type TransactionMock = {
   maintenanceTicket: {
     findUnique: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
+  };
+  maintenanceIntervention: {
+    findFirst: jest.Mock;
+    create: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
   };
   maintenanceReport: {
     create: jest.Mock;
@@ -50,6 +57,12 @@ describe('MaintenanceService', () => {
       maintenanceTicket: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
+      },
+      maintenanceIntervention: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
       },
       maintenanceReport: {
         create: jest.fn(),
@@ -61,6 +74,269 @@ describe('MaintenanceService', () => {
       ),
     };
     service = new MaintenanceService(prisma as unknown as PrismaService);
+  });
+
+  it('creates an intervention and moves an open ticket to in progress in a transaction', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.OPEN,
+      report: { id: 'report-1' },
+    });
+    tx.maintenanceIntervention.findFirst.mockResolvedValue(null);
+    tx.maintenanceIntervention.create.mockResolvedValue({
+      id: 'intervention-1',
+    });
+    tx.maintenanceTicket.update.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+    });
+    tx.maintenanceIntervention.findUniqueOrThrow.mockResolvedValue({
+      id: 'intervention-1',
+      maintenanceTicketId: 'ticket-1',
+      technicianName: 'Technicien maintenance interne',
+      description: 'Remplacement du bloc alimentation.',
+      startedAt: new Date('2026-06-03T13:00:00.000Z'),
+      completedAt: null,
+      cost: null,
+      result: null,
+      createdAt: new Date('2026-06-03T13:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T13:00:00.000Z'),
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+        priority: MaintenancePriority.HIGH,
+        openedAt: new Date('2026-06-03T09:00:00.000Z'),
+      },
+    });
+
+    const result = await service.createMaintenanceIntervention('ticket-1', {
+      technicianName: ' Technicien maintenance interne ',
+      description: ' Remplacement du bloc alimentation. ',
+      startedAt: '2026-06-03T13:00:00.000Z',
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.maintenanceTicket.findUnique).toHaveBeenCalledWith({
+      where: { id: 'ticket-1' },
+      select: {
+        id: true,
+        status: true,
+        report: { select: { id: true } },
+      },
+    });
+    expect(tx.maintenanceIntervention.findFirst).toHaveBeenCalledWith({
+      where: {
+        maintenanceTicketId: 'ticket-1',
+        completedAt: null,
+      },
+      select: { id: true },
+    });
+    expect(tx.maintenanceIntervention.create).toHaveBeenCalledWith({
+      data: {
+        maintenanceTicketId: 'ticket-1',
+        technicianName: 'Technicien maintenance interne',
+        description: 'Remplacement du bloc alimentation.',
+        startedAt: new Date('2026-06-03T13:00:00.000Z'),
+        completedAt: null,
+        cost: null,
+        result: null,
+      },
+    });
+    expect(tx.maintenanceTicket.update).toHaveBeenCalledWith({
+      where: { id: 'ticket-1' },
+      data: { status: MaintenanceTicketStatus.IN_PROGRESS },
+    });
+    expect(tx.maintenanceIntervention.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: 'intervention-1' },
+      include: {
+        maintenanceTicket: {
+          select: {
+            id: true,
+            status: true,
+            priority: true,
+            openedAt: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'intervention-1',
+      maintenanceTicketId: 'ticket-1',
+      technicianName: 'Technicien maintenance interne',
+      description: 'Remplacement du bloc alimentation.',
+      startedAt: '2026-06-03T13:00:00.000Z',
+      completedAt: null,
+      cost: null,
+      result: null,
+      createdAt: '2026-06-03T13:00:00.000Z',
+      updatedAt: '2026-06-03T13:00:00.000Z',
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+        priority: MaintenancePriority.HIGH,
+        openedAt: '2026-06-03T09:00:00.000Z',
+      },
+    });
+  });
+
+  it('creates a completed intervention with optional cost and result', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+    });
+    tx.maintenanceIntervention.findFirst.mockResolvedValue(null);
+    tx.maintenanceIntervention.create.mockResolvedValue({
+      id: 'intervention-1',
+    });
+    tx.maintenanceTicket.update.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+    });
+    tx.maintenanceIntervention.findUniqueOrThrow.mockResolvedValue({
+      id: 'intervention-1',
+      maintenanceTicketId: 'ticket-1',
+      technicianName: 'Prestataire externe',
+      description: 'Diagnostic et remplacement composant.',
+      startedAt: new Date('2026-06-03T13:00:00.000Z'),
+      completedAt: new Date('2026-06-03T15:00:00.000Z'),
+      cost: { toString: () => '450' },
+      result: 'Fonctionnement retabli.',
+      createdAt: new Date('2026-06-03T13:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T15:00:00.000Z'),
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.IN_PROGRESS,
+        priority: MaintenancePriority.HIGH,
+        openedAt: new Date('2026-06-03T09:00:00.000Z'),
+      },
+    });
+
+    const result = await service.createMaintenanceIntervention('ticket-1', {
+      technicianName: 'Prestataire externe',
+      description: 'Diagnostic et remplacement composant.',
+      startedAt: '2026-06-03T13:00:00.000Z',
+      completedAt: '2026-06-03T15:00:00.000Z',
+      cost: 450,
+      result: ' Fonctionnement retabli. ',
+    });
+
+    expect(tx.maintenanceIntervention.create).toHaveBeenCalledWith({
+      data: {
+        maintenanceTicketId: 'ticket-1',
+        technicianName: 'Prestataire externe',
+        description: 'Diagnostic et remplacement composant.',
+        startedAt: new Date('2026-06-03T13:00:00.000Z'),
+        completedAt: new Date('2026-06-03T15:00:00.000Z'),
+        cost: new Prisma.Decimal(450),
+        result: 'Fonctionnement retabli.',
+      },
+    });
+    expect(result.cost).toBe('450');
+    expect(result.completedAt).toBe('2026-06-03T15:00:00.000Z');
+    expect(result.result).toBe('Fonctionnement retabli.');
+  });
+
+  it('rejects intervention when completed date is before started date', async () => {
+    await expect(
+      service.createMaintenanceIntervention('ticket-1', {
+        technicianName: 'Technicien maintenance interne',
+        description: 'Intervention technique.',
+        startedAt: '2026-06-03T15:00:00.000Z',
+        completedAt: '2026-06-03T13:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'La date de fin ne peut pas etre anterieure a la date de debut.',
+      ),
+    );
+    expect(tx.maintenanceTicket.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects intervention when ticket does not exist', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createMaintenanceIntervention('ticket-unknown', {
+        technicianName: 'Technicien maintenance interne',
+        description: 'Intervention technique.',
+        startedAt: '2026-06-03T13:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new NotFoundException('Ticket de maintenance introuvable.'),
+    );
+    expect(tx.maintenanceIntervention.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects intervention when ticket has no report', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.OPEN,
+      report: null,
+    });
+
+    await expect(
+      service.createMaintenanceIntervention('ticket-1', {
+        technicianName: 'Technicien maintenance interne',
+        description: 'Intervention technique.',
+        startedAt: '2026-06-03T13:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Un constat est obligatoire avant de creer une intervention.',
+      ),
+    );
+    expect(tx.maintenanceIntervention.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    MaintenanceTicketStatus.RESOLVED,
+    MaintenanceTicketStatus.CLOSED,
+    MaintenanceTicketStatus.CANCELLED,
+  ])('rejects intervention when ticket status is %s', async (status) => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status,
+      report: { id: 'report-1' },
+    });
+
+    await expect(
+      service.createMaintenanceIntervention('ticket-1', {
+        technicianName: 'Technicien maintenance interne',
+        description: 'Intervention technique.',
+        startedAt: '2026-06-03T13:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Seul un ticket ouvert ou en cours peut recevoir une intervention.',
+      ),
+    );
+    expect(tx.maintenanceIntervention.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects intervention when an active intervention already exists', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.IN_PROGRESS,
+      report: { id: 'report-1' },
+    });
+    tx.maintenanceIntervention.findFirst.mockResolvedValue({
+      id: 'intervention-existing',
+    });
+
+    await expect(
+      service.createMaintenanceIntervention('ticket-1', {
+        technicianName: 'Technicien maintenance interne',
+        description: 'Intervention technique.',
+        startedAt: '2026-06-03T13:00:00.000Z',
+      }),
+    ).rejects.toThrow(
+      new ConflictException(
+        'Une intervention active existe deja pour ce ticket de maintenance.',
+      ),
+    );
+    expect(tx.maintenanceIntervention.create).not.toHaveBeenCalled();
+    expect(tx.maintenanceTicket.update).not.toHaveBeenCalled();
   });
 
   it('creates a maintenance report for an open ticket in a transaction', async () => {
