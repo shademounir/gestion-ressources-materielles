@@ -4,7 +4,7 @@ import { login } from '../modules/auth/authService';
 import { useAuth } from '../modules/auth/useAuth';
 
 export function LoginPage() {
-  const { setAccessToken } = useAuth();
+  const { setSession } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,8 +35,8 @@ export function LoginPage() {
         password,
       });
 
-      setAccessToken(response.accessToken);
-      void navigate('/', { replace: true });
+      setSession(response.accessToken, response.user);
+      void navigate('/dashboard', { replace: true });
     } catch {
       setErrorMessage('Identifiants invalides ou compte non autorise.');
     } finally {

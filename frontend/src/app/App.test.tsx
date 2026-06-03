@@ -49,7 +49,7 @@ describe('Login page', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('logs in and redirects to the protected area', async () => {
+  it('logs in and redirects to the dashboard', async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify(loginResponse), {
@@ -64,7 +64,12 @@ describe('Login page', () => {
     await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
     await user.click(screen.getByRole('button', { name: /se connecter/i }));
 
-    expect(await screen.findByRole('heading', { name: /socle technique pret/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /pilotage des ressources materielles/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/admin user/i)).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: /navigation principale/i })).toBeInTheDocument();
+    expect(screen.getByText(/ressources totales/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3000/api/v1/auth/login',
       expect.objectContaining({
@@ -88,5 +93,26 @@ describe('Login page', () => {
     await user.click(screen.getByRole('button', { name: /se connecter/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/identifiants invalides/i);
+  });
+
+  it('logs out from the authenticated layout', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(loginResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('button', { name: /deconnexion/i }));
+
+    expect(await screen.findByRole('heading', { name: /connexion/i })).toBeInTheDocument();
   });
 });
