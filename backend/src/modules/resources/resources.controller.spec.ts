@@ -1,7 +1,9 @@
 import 'reflect-metadata';
-import { ResourceStatus } from '@prisma/client';
+import { ResourceAssignmentStatus, ResourceStatus } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { ResourceAssignmentHistoryResponseDto } from '../resource-assignments/dto/resource-assignment-read.dto';
+import { ResourceAssignmentsService } from '../resource-assignments/resource-assignments.service';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { ResourceCreatedAtSort } from './dto/list-resources-query.dto';
 import { ResourceDetailResponseDto } from './dto/resource-detail-response.dto';
@@ -9,6 +11,11 @@ import { ResourceListResponseDto } from './dto/resource-list-response.dto';
 import { ResourceResponseDto } from './dto/resource-response.dto';
 import { ResourcesController } from './resources.controller';
 import { ResourcesService } from './resources.service';
+
+const createResourceAssignmentsServiceMock = () =>
+  ({
+    listResourceAssignmentsByResource: jest.fn(),
+  }) as unknown as ResourceAssignmentsService;
 
 describe('ResourcesController', () => {
   it('delegates resource creation to ResourcesService', async () => {
@@ -32,7 +39,10 @@ describe('ResourcesController', () => {
       updateResourceStatus: jest.fn(),
       createResource: createResourceMock,
     } as unknown as ResourcesService;
-    const controller = new ResourcesController(resourcesService);
+    const controller = new ResourcesController(
+      resourcesService,
+      createResourceAssignmentsServiceMock(),
+    );
     const createResourceDto: CreateResourceDto = {
       name: 'Ordinateur portable Dell Latitude 5440',
       inventoryCode: 'INV-INFO-2026-0001',
@@ -77,7 +87,10 @@ describe('ResourcesController', () => {
       updateResourceStatus: jest.fn(),
       createResource: jest.fn(),
     } as unknown as ResourcesService;
-    const controller = new ResourcesController(resourcesService);
+    const controller = new ResourcesController(
+      resourcesService,
+      createResourceAssignmentsServiceMock(),
+    );
     const query = {
       page: 1,
       limit: 20,
@@ -120,12 +133,69 @@ describe('ResourcesController', () => {
       updateResourceStatus: jest.fn(),
       createResource: jest.fn(),
     } as unknown as ResourcesService;
-    const controller = new ResourcesController(resourcesService);
+    const controller = new ResourcesController(
+      resourcesService,
+      createResourceAssignmentsServiceMock(),
+    );
 
     const result = await controller.findOne('resource-1');
 
     expect(getResourceByIdMock).toHaveBeenCalledWith('resource-1');
     expect(result).toEqual(detailResponse);
+  });
+
+  it('delegates resource assignment history retrieval to ResourceAssignmentsService', async () => {
+    const historyResponse: ResourceAssignmentHistoryResponseDto = {
+      data: [
+        {
+          id: 'assignment-1',
+          resourceId: 'resource-1',
+          resourceName: 'Ordinateur portable Dell Latitude 5440',
+          inventoryCode: 'INV-INFO-2026-0001',
+          userId: 'user-1',
+          userFullName: 'Amina Bennani',
+          status: ResourceAssignmentStatus.RETURNED,
+          assignedAt: '2026-06-03T09:00:00.000Z',
+          returnedAt: '2026-06-03T10:00:00.000Z',
+          comment: 'Affectation initiale',
+          returnComment: 'Retour confirme',
+        },
+      ],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 1,
+        totalPages: 1,
+      },
+    };
+    const listResourceAssignmentsByResourceMock = jest
+      .fn()
+      .mockResolvedValue(historyResponse);
+    const resourcesService = {
+      getResourceById: jest.fn(),
+      listResources: jest.fn(),
+      updateResourceStatus: jest.fn(),
+      createResource: jest.fn(),
+    } as unknown as ResourcesService;
+    const resourceAssignmentsService = {
+      listResourceAssignmentsByResource: listResourceAssignmentsByResourceMock,
+    } as unknown as ResourceAssignmentsService;
+    const controller = new ResourcesController(
+      resourcesService,
+      resourceAssignmentsService,
+    );
+    const query = {
+      page: 1,
+      limit: 20,
+    };
+
+    const result = await controller.findAssignments('resource-1', query);
+
+    expect(listResourceAssignmentsByResourceMock).toHaveBeenCalledWith(
+      'resource-1',
+      query,
+    );
+    expect(result).toEqual(historyResponse);
   });
 
   it('delegates status update to ResourcesService', async () => {
@@ -151,7 +221,10 @@ describe('ResourcesController', () => {
       listResources: jest.fn(),
       createResource: jest.fn(),
     } as unknown as ResourcesService;
-    const controller = new ResourcesController(resourcesService);
+    const controller = new ResourcesController(
+      resourcesService,
+      createResourceAssignmentsServiceMock(),
+    );
     const dto = {
       status: ResourceStatus.UNDER_MAINTENANCE,
     };
@@ -203,6 +276,22 @@ describe('ResourcesController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected updateStatus handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
+  it('allows ADMIN and MANAGER roles on the assignment history endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      ResourcesController.prototype,
+      'findAssignments',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected findAssignments handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];

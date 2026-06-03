@@ -29,6 +29,14 @@ type TransactionMock = {
 
 type PrismaMock = {
   $transaction: jest.Mock;
+  resource: {
+    findUnique: jest.Mock;
+  };
+  resourceAssignment: {
+    count: jest.Mock;
+    findMany: jest.Mock;
+    findUnique: jest.Mock;
+  };
 };
 
 describe('ResourceAssignmentsService', () => {
@@ -56,8 +64,227 @@ describe('ResourceAssignmentsService', () => {
       $transaction: jest.fn((callback: (client: TransactionMock) => unknown) =>
         callback(tx),
       ),
+      resource: {
+        findUnique: jest.fn(),
+      },
+      resourceAssignment: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+      },
     };
     service = new ResourceAssignmentsService(prisma as unknown as PrismaService);
+  });
+
+  it('lists assignment history for an existing resource', async () => {
+    prisma.resource.findUnique.mockResolvedValue({ id: 'resource-1' });
+    prisma.resourceAssignment.count.mockResolvedValue(1);
+    prisma.resourceAssignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment-1',
+        resourceId: 'resource-1',
+        userId: 'user-1',
+        assignedAt: new Date('2026-06-03T09:00:00.000Z'),
+        returnedAt: null,
+        status: ResourceAssignmentStatus.ACTIVE,
+        comment: 'Affectation initiale',
+        returnComment: null,
+        createdAt: new Date('2026-06-03T09:00:00.000Z'),
+        updatedAt: new Date('2026-06-03T09:00:00.000Z'),
+        resource: {
+          id: 'resource-1',
+          inventoryCode: 'INV-INFO-2026-0001',
+          name: 'Ordinateur portable Dell Latitude 5440',
+          category: 'Informatique',
+          status: ResourceStatus.ASSIGNED,
+        },
+        user: {
+          id: 'user-1',
+          firstName: 'Amina',
+          lastName: 'Bennani',
+          email: 'amina.bennani@faculty.test',
+        },
+      },
+    ]);
+
+    const result = await service.listResourceAssignmentsByResource(
+      'resource-1',
+      { page: 2, limit: 10 },
+    );
+
+    expect(prisma.resource.findUnique).toHaveBeenCalledWith({
+      where: { id: 'resource-1' },
+      select: { id: true },
+    });
+    expect(prisma.resourceAssignment.count).toHaveBeenCalledWith({
+      where: { resourceId: 'resource-1' },
+    });
+    expect(prisma.resourceAssignment.findMany).toHaveBeenCalledWith({
+      where: { resourceId: 'resource-1' },
+      include: {
+        resource: {
+          select: {
+            id: true,
+            inventoryCode: true,
+            name: true,
+            category: true,
+            status: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { assignedAt: 'desc' },
+      skip: 10,
+      take: 10,
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'assignment-1',
+          resourceId: 'resource-1',
+          resourceName: 'Ordinateur portable Dell Latitude 5440',
+          inventoryCode: 'INV-INFO-2026-0001',
+          userId: 'user-1',
+          userFullName: 'Amina Bennani',
+          status: ResourceAssignmentStatus.ACTIVE,
+          assignedAt: '2026-06-03T09:00:00.000Z',
+          returnedAt: null,
+          comment: 'Affectation initiale',
+          returnComment: null,
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+  });
+
+  it('normalizes assignment history pagination', async () => {
+    prisma.resource.findUnique.mockResolvedValue({ id: 'resource-1' });
+    prisma.resourceAssignment.count.mockResolvedValue(0);
+    prisma.resourceAssignment.findMany.mockResolvedValue([]);
+
+    const result = await service.listResourceAssignmentsByResource(
+      'resource-1',
+      { page: 0, limit: 250 },
+    );
+
+    expect(prisma.resourceAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        take: 100,
+      }),
+    );
+    expect(result.meta).toEqual({
+      page: 1,
+      limit: 100,
+      total: 0,
+      totalPages: 0,
+    });
+  });
+
+  it('rejects assignment history when resource does not exist', async () => {
+    prisma.resource.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.listResourceAssignmentsByResource('resource-unknown', {}),
+    ).rejects.toThrow(new NotFoundException('Ressource introuvable.'));
+    expect(prisma.resourceAssignment.count).not.toHaveBeenCalled();
+    expect(prisma.resourceAssignment.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns assignment detail with resource and user projections', async () => {
+    prisma.resourceAssignment.findUnique.mockResolvedValue({
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      userId: 'user-1',
+      assignedAt: new Date('2026-06-03T09:00:00.000Z'),
+      returnedAt: new Date('2026-06-03T10:00:00.000Z'),
+      status: ResourceAssignmentStatus.RETURNED,
+      comment: 'Affectation initiale',
+      returnComment: 'Retour confirme',
+      createdAt: new Date('2026-06-03T09:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T10:00:00.000Z'),
+      resource: {
+        id: 'resource-1',
+        inventoryCode: 'INV-INFO-2026-0001',
+        name: 'Ordinateur portable Dell Latitude 5440',
+        category: 'Informatique',
+        status: ResourceStatus.AVAILABLE,
+      },
+      user: {
+        id: 'user-1',
+        firstName: 'Amina',
+        lastName: 'Bennani',
+        email: 'amina.bennani@faculty.test',
+      },
+    });
+
+    const result = await service.getAssignmentById('assignment-1');
+
+    expect(prisma.resourceAssignment.findUnique).toHaveBeenCalledWith({
+      where: { id: 'assignment-1' },
+      include: {
+        resource: {
+          select: {
+            id: true,
+            inventoryCode: true,
+            name: true,
+            category: true,
+            status: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'assignment-1',
+      status: ResourceAssignmentStatus.RETURNED,
+      assignedAt: '2026-06-03T09:00:00.000Z',
+      returnedAt: '2026-06-03T10:00:00.000Z',
+      comment: 'Affectation initiale',
+      returnComment: 'Retour confirme',
+      createdAt: '2026-06-03T09:00:00.000Z',
+      updatedAt: '2026-06-03T10:00:00.000Z',
+      resource: {
+        id: 'resource-1',
+        inventoryCode: 'INV-INFO-2026-0001',
+        name: 'Ordinateur portable Dell Latitude 5440',
+        category: 'Informatique',
+        status: ResourceStatus.AVAILABLE,
+      },
+      user: {
+        id: 'user-1',
+        firstName: 'Amina',
+        lastName: 'Bennani',
+        email: 'amina.bennani@faculty.test',
+      },
+    });
+  });
+
+  it('rejects detail when assignment does not exist', async () => {
+    prisma.resourceAssignment.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.getAssignmentById('assignment-unknown'),
+    ).rejects.toThrow(new NotFoundException('Affectation introuvable.'));
   });
 
   it('assigns an available resource to an active user in a transaction', async () => {

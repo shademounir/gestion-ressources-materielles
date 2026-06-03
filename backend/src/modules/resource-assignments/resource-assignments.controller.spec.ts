@@ -1,8 +1,9 @@
 import 'reflect-metadata';
-import { ResourceAssignmentStatus } from '@prisma/client';
+import { ResourceAssignmentStatus, ResourceStatus } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
+import { ResourceAssignmentDetailDto } from './dto/resource-assignment-read.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
 import { ResourceAssignmentsController } from './resource-assignments.controller';
 import { ResourceAssignmentsService } from './resource-assignments.service';
@@ -25,6 +26,7 @@ describe('ResourceAssignmentsController', () => {
     const resourceAssignmentsService = {
       assignResource: assignResourceMock,
       returnResource: jest.fn(),
+      getAssignmentById: jest.fn(),
     } as unknown as ResourceAssignmentsService;
     const controller = new ResourceAssignmentsController(
       resourceAssignmentsService,
@@ -58,6 +60,7 @@ describe('ResourceAssignmentsController', () => {
     const resourceAssignmentsService = {
       assignResource: jest.fn(),
       returnResource: returnResourceMock,
+      getAssignmentById: jest.fn(),
     } as unknown as ResourceAssignmentsService;
     const controller = new ResourceAssignmentsController(
       resourceAssignmentsService,
@@ -70,6 +73,46 @@ describe('ResourceAssignmentsController', () => {
 
     expect(returnResourceMock).toHaveBeenCalledWith('assignment-1', dto);
     expect(result).toEqual(assignmentResponse);
+  });
+
+  it('delegates assignment detail retrieval to ResourceAssignmentsService', async () => {
+    const detailResponse: ResourceAssignmentDetailDto = {
+      id: 'assignment-1',
+      status: ResourceAssignmentStatus.RETURNED,
+      assignedAt: '2026-06-03T09:00:00.000Z',
+      returnedAt: '2026-06-03T10:00:00.000Z',
+      comment: 'Affectation initiale',
+      returnComment: 'Retour confirme',
+      createdAt: '2026-06-03T09:00:00.000Z',
+      updatedAt: '2026-06-03T10:00:00.000Z',
+      resource: {
+        id: 'resource-1',
+        inventoryCode: 'INV-INFO-2026-0001',
+        name: 'Ordinateur portable Dell Latitude 5440',
+        category: 'Informatique',
+        status: ResourceStatus.AVAILABLE,
+      },
+      user: {
+        id: 'user-1',
+        firstName: 'Amina',
+        lastName: 'Bennani',
+        email: 'amina.bennani@faculty.test',
+      },
+    };
+    const getAssignmentByIdMock = jest.fn().mockResolvedValue(detailResponse);
+    const resourceAssignmentsService = {
+      assignResource: jest.fn(),
+      returnResource: jest.fn(),
+      getAssignmentById: getAssignmentByIdMock,
+    } as unknown as ResourceAssignmentsService;
+    const controller = new ResourceAssignmentsController(
+      resourceAssignmentsService,
+    );
+
+    const result = await controller.findOne('assignment-1');
+
+    expect(getAssignmentByIdMock).toHaveBeenCalledWith('assignment-1');
+    expect(result).toEqual(detailResponse);
   });
 
   it('allows ADMIN and MANAGER roles on the create endpoint', () => {
@@ -97,6 +140,22 @@ describe('ResourceAssignmentsController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected returnResource handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
+  it('allows ADMIN and MANAGER roles on the detail endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      ResourceAssignmentsController.prototype,
+      'findOne',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected findOne handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
