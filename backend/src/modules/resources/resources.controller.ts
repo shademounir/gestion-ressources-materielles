@@ -25,6 +25,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { ListResourceAssignmentsQueryDto } from '../resource-assignments/dto/list-resource-assignments-query.dto';
+import { ResourceAssignmentHistoryResponseDto } from '../resource-assignments/dto/resource-assignment-read.dto';
+import { ResourceAssignmentsService } from '../resource-assignments/resource-assignments.service';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { ListResourcesQueryDto } from './dto/list-resources-query.dto';
 import { ResourceDetailResponseDto } from './dto/resource-detail-response.dto';
@@ -36,7 +39,10 @@ import { ResourcesService } from './resources.service';
 @ApiTags('resources')
 @Controller('resources')
 export class ResourcesController {
-  constructor(private readonly resourcesService: ResourcesService) {}
+  constructor(
+    private readonly resourcesService: ResourcesService,
+    private readonly resourceAssignmentsService: ResourceAssignmentsService,
+  ) {}
 
   @Get()
   @ApiBearerAuth()
@@ -48,6 +54,26 @@ export class ResourcesController {
   @ApiForbiddenResponse({ description: "Role insuffisant pour consulter l'inventaire" })
   findAll(@Query() query: ListResourcesQueryDto): Promise<ResourceListResponseDto> {
     return this.resourcesService.listResources(query);
+  }
+
+  @Get(':id/assignments')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Consulter l'historique des affectations d'une ressource" })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID de la ressource' })
+  @ApiOkResponse({ type: ResourceAssignmentHistoryResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: "Role insuffisant pour consulter l'historique" })
+  @ApiNotFoundResponse({ description: 'Ressource introuvable' })
+  findAssignments(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) resourceId: string,
+    @Query() query: ListResourceAssignmentsQueryDto,
+  ): Promise<ResourceAssignmentHistoryResponseDto> {
+    return this.resourceAssignmentsService.listResourceAssignmentsByResource(
+      resourceId,
+      query,
+    );
   }
 
   @Get(':id')

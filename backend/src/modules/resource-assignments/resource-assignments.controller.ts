@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -25,6 +26,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
+import { ResourceAssignmentDetailDto } from './dto/resource-assignment-read.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
 import { ReturnResourceAssignmentDto } from './dto/return-resource-assignment.dto';
 import { ResourceAssignmentsService } from './resource-assignments.service';
@@ -35,6 +37,22 @@ export class ResourceAssignmentsController {
   constructor(
     private readonly resourceAssignmentsService: ResourceAssignmentsService,
   ) {}
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Consulter le detail d'une affectation" })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'affectation" })
+  @ApiOkResponse({ type: ResourceAssignmentDetailDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour consulter une affectation' })
+  @ApiNotFoundResponse({ description: 'Affectation introuvable' })
+  findOne(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) assignmentId: string,
+  ): Promise<ResourceAssignmentDetailDto> {
+    return this.resourceAssignmentsService.getAssignmentById(assignmentId);
+  }
 
   @Post()
   @ApiBearerAuth()

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  Prisma,
   ResourceAssignment,
   ResourceAssignmentStatus,
   ResourceStatus,
@@ -12,12 +13,115 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
+import { ListResourceAssignmentsQueryDto } from './dto/list-resource-assignments-query.dto';
+import {
+  ResourceAssignmentDetailDto,
+  ResourceAssignmentHistoryItemDto,
+  ResourceAssignmentHistoryResponseDto,
+} from './dto/resource-assignment-read.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
 import { ReturnResourceAssignmentDto } from './dto/return-resource-assignment.dto';
+
+const ASSIGNMENT_DEFAULT_PAGE = 1;
+const ASSIGNMENT_DEFAULT_LIMIT = 20;
+const ASSIGNMENT_MAX_LIMIT = 100;
+
+const assignmentReadInclude = {
+  resource: {
+    select: {
+      id: true,
+      inventoryCode: true,
+      name: true,
+      category: true,
+      status: true,
+    },
+  },
+  user: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+    },
+  },
+} satisfies Prisma.ResourceAssignmentInclude;
+
+type AssignmentWithReadRelations = ResourceAssignment & {
+  resource: {
+    id: string;
+    inventoryCode: string;
+    name: string;
+    category: string;
+    status: ResourceStatus;
+  };
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+};
 
 @Injectable()
 export class ResourceAssignmentsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listResourceAssignmentsByResource(
+    resourceId: string,
+    query: ListResourceAssignmentsQueryDto,
+  ): Promise<ResourceAssignmentHistoryResponseDto> {
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: { id: true },
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Ressource introuvable.');
+    }
+
+    const page = this.normalizePage(query.page);
+    const limit = this.normalizeLimit(query.limit);
+    const skip = (page - 1) * limit;
+    const where: Prisma.ResourceAssignmentWhereInput = { resourceId };
+
+    const [total, assignments] = await Promise.all([
+      this.prisma.resourceAssignment.count({ where }),
+      this.prisma.resourceAssignment.findMany({
+        where,
+        include: assignmentReadInclude,
+        orderBy: { assignedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: assignments.map((assignment) =>
+        this.toResourceAssignmentHistoryItem(assignment),
+      ),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getAssignmentById(
+    assignmentId: string,
+  ): Promise<ResourceAssignmentDetailDto> {
+    const assignment = await this.prisma.resourceAssignment.findUnique({
+      where: { id: assignmentId },
+      include: assignmentReadInclude,
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Affectation introuvable.');
+    }
+
+    return this.toResourceAssignmentDetail(assignment);
+  }
 
   async assignResource(
     createResourceAssignmentDto: CreateResourceAssignmentDto,
@@ -160,6 +264,64 @@ export class ResourceAssignmentsService {
       returnComment: assignment.returnComment,
       createdAt: assignment.createdAt.toISOString(),
       updatedAt: assignment.updatedAt.toISOString(),
+    };
+  }
+
+  private normalizePage(page?: number): number {
+    return page && page > 0 ? page : ASSIGNMENT_DEFAULT_PAGE;
+  }
+
+  private normalizeLimit(limit?: number): number {
+    if (!limit || limit < 1) {
+      return ASSIGNMENT_DEFAULT_LIMIT;
+    }
+
+    return Math.min(limit, ASSIGNMENT_MAX_LIMIT);
+  }
+
+  private toResourceAssignmentHistoryItem(
+    assignment: AssignmentWithReadRelations,
+  ): ResourceAssignmentHistoryItemDto {
+    return {
+      id: assignment.id,
+      resourceId: assignment.resourceId,
+      resourceName: assignment.resource.name,
+      inventoryCode: assignment.resource.inventoryCode,
+      userId: assignment.userId,
+      userFullName: `${assignment.user.firstName} ${assignment.user.lastName}`,
+      status: assignment.status,
+      assignedAt: assignment.assignedAt.toISOString(),
+      returnedAt: assignment.returnedAt?.toISOString() ?? null,
+      comment: assignment.comment,
+      returnComment: assignment.returnComment,
+    };
+  }
+
+  private toResourceAssignmentDetail(
+    assignment: AssignmentWithReadRelations,
+  ): ResourceAssignmentDetailDto {
+    return {
+      id: assignment.id,
+      status: assignment.status,
+      assignedAt: assignment.assignedAt.toISOString(),
+      returnedAt: assignment.returnedAt?.toISOString() ?? null,
+      comment: assignment.comment,
+      returnComment: assignment.returnComment,
+      createdAt: assignment.createdAt.toISOString(),
+      updatedAt: assignment.updatedAt.toISOString(),
+      resource: {
+        id: assignment.resource.id,
+        inventoryCode: assignment.resource.inventoryCode,
+        name: assignment.resource.name,
+        category: assignment.resource.category,
+        status: assignment.resource.status,
+      },
+      user: {
+        id: assignment.user.id,
+        firstName: assignment.user.firstName,
+        lastName: assignment.user.lastName,
+        email: assignment.user.email,
+      },
     };
   }
 }
