@@ -452,6 +452,9 @@ export function ResourcesPage() {
                 >
                   Mettre a jour
                 </button>
+                <Link className="secondary-link-action" to={`/assignments?resourceId=${selectedResource.id}`}>
+                  Voir les affectations
+                </Link>
               </div>
             ) : null}
             {!isDetailLoading && !selectedResource ? (

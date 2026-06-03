@@ -62,6 +62,81 @@ const createdResourceResponse = {
   acquisitionValue: null,
 };
 
+const assignmentHistoryResponse = {
+  data: [
+    {
+      id: 'assignment-1',
+      resourceId: 'resource-1',
+      userId: 'assigned-user-1',
+      resourceName: 'PC Dell Latitude',
+      inventoryCode: 'INV-INFO-2026-0001',
+      userFullName: 'Demo Manager',
+      status: 'ACTIVE',
+      assignedAt: '2026-06-03T09:00:00.000Z',
+      returnedAt: null,
+      comment: 'Affectation laboratoire',
+      returnComment: null,
+      createdAt: '2026-06-03T09:00:00.000Z',
+      updatedAt: '2026-06-03T09:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const assignmentDetailResponse = {
+  id: 'assignment-1',
+  status: 'ACTIVE',
+  assignedAt: '2026-06-03T09:00:00.000Z',
+  returnedAt: null,
+  comment: 'Affectation laboratoire',
+  returnComment: null,
+  createdAt: '2026-06-03T09:00:00.000Z',
+  updatedAt: '2026-06-03T09:00:00.000Z',
+  resource: {
+    id: 'resource-1',
+    inventoryCode: 'INV-INFO-2026-0001',
+    name: 'PC Dell Latitude',
+    category: 'Informatique',
+    status: 'ASSIGNED',
+  },
+  user: {
+    id: 'assigned-user-1',
+    firstName: 'Demo',
+    lastName: 'Manager',
+    email: 'manager@grm.local',
+  },
+};
+
+const createdAssignmentResponse = {
+  id: 'assignment-2',
+  resourceId: 'resource-1',
+  userId: 'assigned-user-2',
+  assignedAt: '2026-06-04T09:00:00.000Z',
+  returnedAt: null,
+  status: 'ACTIVE',
+  comment: 'Nouvelle affectation',
+  returnComment: null,
+  createdAt: '2026-06-04T09:00:00.000Z',
+  updatedAt: '2026-06-04T09:00:00.000Z',
+};
+
+const createdAssignmentDetailResponse = {
+  ...assignmentDetailResponse,
+  id: 'assignment-2',
+  comment: 'Nouvelle affectation',
+  user: {
+    id: 'assigned-user-2',
+    firstName: 'System',
+    lastName: 'Administrator',
+    email: 'admin@grm.local',
+  },
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -258,5 +333,101 @@ describe('Login page', () => {
         method: 'POST',
       }),
     );
+  });
+
+  it('manages resource assignments from the authenticated UI', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.includes('/resources?')) {
+        return Promise.resolve(jsonResponse(resourceListResponse));
+      }
+
+      if (url.includes('/resources/resource-1/assignments?')) {
+        return Promise.resolve(jsonResponse(assignmentHistoryResponse));
+      }
+
+      if (url.endsWith('/resource-assignments/assignment-1/return') && method === 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({
+            ...assignmentHistoryResponse.data[0],
+            status: 'RETURNED',
+            returnedAt: '2026-06-04T10:00:00.000Z',
+            returnComment: 'Retour OK',
+          }),
+        );
+      }
+
+      if (url.endsWith('/resource-assignments/assignment-1')) {
+        return Promise.resolve(jsonResponse(assignmentDetailResponse));
+      }
+
+      if (url.endsWith('/resource-assignments/assignment-2')) {
+        return Promise.resolve(jsonResponse(createdAssignmentDetailResponse));
+      }
+
+      if (url.endsWith('/resource-assignments') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdAssignmentResponse, 201));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('link', { name: /affectations/i }));
+
+    expect(await screen.findByRole('heading', { name: /gestion des affectations/i })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText(/^ressource$/i), 'resource-1');
+
+    expect(await screen.findByText('Demo Manager')).toBeInTheDocument();
+    expect(screen.getByText('Affectation laboratoire')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('link', { name: /inv-info-2026-0001/i }));
+
+    expect(await screen.findByText('manager@grm.local')).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^commentaire retour$/i), 'Retour OK');
+    await user.click(screen.getByRole('button', { name: /retourner la ressource/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(await screen.findByText(/ressource retournee avec succes/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/resource-assignments/assignment-1/return',
+      expect.objectContaining({
+        body: JSON.stringify({ returnComment: 'Retour OK' }),
+        method: 'PATCH',
+      }),
+    );
+
+    await user.type(screen.getByLabelText(/utilisateur id/i), 'assigned-user-2');
+    await user.type(screen.getByLabelText(/^commentaire$/i), 'Nouvelle affectation');
+    await user.click(screen.getByRole('button', { name: /affecter la ressource/i }));
+
+    expect(await screen.findByText(/affectation creee avec succes/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/resource-assignments',
+      expect.objectContaining({
+        body: JSON.stringify({
+          resourceId: 'resource-1',
+          userId: 'assigned-user-2',
+          comment: 'Nouvelle affectation',
+        }),
+        method: 'POST',
+      }),
+    );
+
+    confirmSpy.mockRestore();
   });
 });
