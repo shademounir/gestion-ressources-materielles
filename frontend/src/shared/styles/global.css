@@ -378,6 +378,12 @@ button:hover {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.maintenance-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .operation-card {
   display: grid;
   gap: 0.55rem;
@@ -455,6 +461,16 @@ button:hover {
 .resource-side-panel {
   display: grid;
   gap: 1rem;
+}
+
+.maintenance-workspace {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.maintenance-actions {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .resource-filters {
@@ -659,9 +675,14 @@ button:hover {
 
   .kpi-grid,
   .operations-grid,
+  .maintenance-grid,
   .resource-workspace,
   .resource-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .maintenance-actions {
+    grid-template-columns: 1fr;
   }
 
   .resource-side-panel {
@@ -716,6 +737,7 @@ button:hover {
   .sidebar-nav,
   .kpi-grid,
   .operations-grid,
+  .maintenance-grid,
   .resource-workspace,
   .resource-filters,
   .resource-side-panel {

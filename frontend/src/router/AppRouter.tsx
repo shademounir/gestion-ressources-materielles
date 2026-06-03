@@ -5,6 +5,7 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ResourcesPage } from '../pages/ResourcesPage';
 import { AssignmentsPage } from '../pages/AssignmentsPage';
+import { MaintenancePage } from '../pages/MaintenancePage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export function AppRouter() {
@@ -23,6 +24,7 @@ export function AppRouter() {
         <Route path="/resources/:resourceId" element={<ResourcesPage />} />
         <Route path="/assignments" element={<AssignmentsPage />} />
         <Route path="/assignments/:assignmentId" element={<AssignmentsPage />} />
+        <Route path="/maintenance" element={<MaintenancePage />} />
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/404" element={<NotFoundPage />} />
