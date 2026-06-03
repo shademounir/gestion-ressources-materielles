@@ -10,6 +10,7 @@ type PrismaMock = {
     findUnique: jest.Mock;
     findMany: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
   };
   supplier: {
     findUnique: jest.Mock;
@@ -41,6 +42,7 @@ describe('ResourcesService', () => {
         findUnique: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       supplier: {
         findUnique: jest.fn(),
@@ -274,6 +276,75 @@ describe('ResourcesService', () => {
     await expect(service.getResourceById('resource-unknown')).rejects.toThrow(
       new NotFoundException('Ressource introuvable.'),
     );
+  });
+
+  it('updates the status of an existing resource', async () => {
+    prisma.resource.findUnique.mockResolvedValue({ id: 'resource-1' });
+    prisma.resource.update.mockResolvedValue({
+      id: 'resource-1',
+      name: 'Ordinateur portable Dell Latitude 5440',
+      inventoryCode: 'INV-INFO-2026-0001',
+      category: 'Informatique',
+      description: 'PC portable destine aux salles informatiques',
+      serialNumber: 'SN-DL-5440-2026-001',
+      acquisitionDate: new Date('2026-06-02T00:00:00.000Z'),
+      acquisitionValue: new Prisma.Decimal(12500),
+      status: ResourceStatus.UNDER_MAINTENANCE,
+      supplierId: 'supplier-1',
+      supplier: null,
+      createdAt: new Date('2026-06-02T16:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T10:00:00.000Z'),
+    });
+
+    const result = await service.updateResourceStatus('resource-1', {
+      status: ResourceStatus.UNDER_MAINTENANCE,
+    });
+
+    expect(prisma.resource.findUnique).toHaveBeenCalledWith({
+      where: { id: 'resource-1' },
+      select: { id: true },
+    });
+    expect(prisma.resource.update).toHaveBeenCalledWith({
+      where: { id: 'resource-1' },
+      data: { status: ResourceStatus.UNDER_MAINTENANCE },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'resource-1',
+      name: 'Ordinateur portable Dell Latitude 5440',
+      inventoryCode: 'INV-INFO-2026-0001',
+      category: 'Informatique',
+      description: 'PC portable destine aux salles informatiques',
+      serialNumber: 'SN-DL-5440-2026-001',
+      acquisitionDate: '2026-06-02T00:00:00.000Z',
+      acquisitionValue: '12500',
+      status: ResourceStatus.UNDER_MAINTENANCE,
+      supplierId: 'supplier-1',
+      supplier: null,
+      createdAt: '2026-06-02T16:00:00.000Z',
+      updatedAt: '2026-06-03T10:00:00.000Z',
+    });
+  });
+
+  it('rejects status update when resource does not exist', async () => {
+    prisma.resource.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.updateResourceStatus('resource-unknown', {
+        status: ResourceStatus.ARCHIVED,
+      }),
+    ).rejects.toThrow(new NotFoundException('Ressource introuvable.'));
+    expect(prisma.resource.update).not.toHaveBeenCalled();
   });
 
   it('creates a resource with null optional fields when omitted', async () => {
