@@ -96,6 +96,13 @@ enum MaintenancePriority {
   URGENT
 }
 
+enum MaintenanceSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -133,6 +140,7 @@ model User {
   createdTenders             Tender[]             @relation("TenderCreatedBy")
   resourceAssignments        ResourceAssignment[]
   reportedMaintenanceTickets MaintenanceTicket[]  @relation("MaintenanceTicketReportedBy")
+  authoredMaintenanceReports MaintenanceReport[]  @relation("MaintenanceReportAuthor")
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
   deletedAt                  DateTime?
@@ -295,6 +303,7 @@ model MaintenanceTicket {
   status       MaintenanceTicketStatus @default(OPEN)
   openedAt     DateTime                @default(now())
   closedAt     DateTime?
+  report       MaintenanceReport?
   createdAt    DateTime                @default(now())
   updatedAt    DateTime                @updatedAt
 
@@ -303,6 +312,25 @@ model MaintenanceTicket {
   @@index([priority])
   @@index([status])
   @@index([openedAt])
+}
+
+model MaintenanceReport {
+  id                  String              @id @default(uuid())
+  maintenanceTicketId String              @unique
+  maintenanceTicket   MaintenanceTicket   @relation(fields: [maintenanceTicketId], references: [id])
+  authorId            String
+  author              User                @relation("MaintenanceReportAuthor", fields: [authorId], references: [id])
+  diagnosis           String
+  probableCause       String
+  severity            MaintenanceSeverity
+  recommendations     String?
+  reportedAt          DateTime            @default(now())
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([authorId])
+  @@index([severity])
+  @@index([reportedAt])
 }
 
 model AuditLog {

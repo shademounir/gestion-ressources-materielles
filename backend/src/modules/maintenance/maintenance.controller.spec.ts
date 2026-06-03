@@ -1,8 +1,13 @@
 import 'reflect-metadata';
 import { UnauthorizedException } from '@nestjs/common';
-import { MaintenancePriority, MaintenanceTicketStatus } from '@prisma/client';
+import {
+  MaintenancePriority,
+  MaintenanceSeverity,
+  MaintenanceTicketStatus,
+} from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { MaintenanceReportResponseDto } from './dto/maintenance-report-response.dto';
 import { MaintenanceTicketResponseDto } from './dto/maintenance-ticket-response.dto';
 import { MaintenanceController } from './maintenance.controller';
 import { MaintenanceService } from './maintenance.service';
@@ -24,6 +29,7 @@ describe('MaintenanceController', () => {
     const reportFailureMock = jest.fn().mockResolvedValue(response);
     const service = {
       reportFailure: reportFailureMock,
+      createMaintenanceReport: jest.fn(),
     } as unknown as MaintenanceService;
     const controller = new MaintenanceController(service);
     const dto = {
@@ -44,6 +50,56 @@ describe('MaintenanceController', () => {
     expect(result).toEqual(response);
   });
 
+  it('delegates maintenance report creation to MaintenanceService with authenticated user', async () => {
+    const response: MaintenanceReportResponseDto = {
+      id: 'report-1',
+      diagnosis: 'Carte mere defectueuse apres test de demarrage.',
+      probableCause: 'Surtension probable au niveau de l alimentation.',
+      severity: MaintenanceSeverity.HIGH,
+      recommendations: 'Remplacer la carte mere.',
+      reportedAt: '2026-06-03T11:00:00.000Z',
+      author: {
+        id: 'user-1',
+        firstName: 'Amina',
+        lastName: 'Bennani',
+        email: 'amina.bennani@faculty.test',
+      },
+      maintenanceTicket: {
+        id: 'ticket-1',
+        status: MaintenanceTicketStatus.OPEN,
+        priority: MaintenancePriority.HIGH,
+        openedAt: '2026-06-03T09:00:00.000Z',
+      },
+    };
+    const createMaintenanceReportMock = jest.fn().mockResolvedValue(response);
+    const service = {
+      reportFailure: jest.fn(),
+      createMaintenanceReport: createMaintenanceReportMock,
+    } as unknown as MaintenanceService;
+    const controller = new MaintenanceController(service);
+    const dto = {
+      diagnosis: 'Carte mere defectueuse apres test de demarrage.',
+      probableCause: 'Surtension probable au niveau de l alimentation.',
+      severity: MaintenanceSeverity.HIGH,
+      recommendations: 'Remplacer la carte mere.',
+    };
+
+    const result = await controller.createReport('ticket-1', dto, {
+      user: {
+        userId: 'user-1',
+        email: 'manager@faculty.test',
+        roles: [UserRole.MANAGER],
+      },
+    });
+
+    expect(createMaintenanceReportMock).toHaveBeenCalledWith(
+      'ticket-1',
+      dto,
+      'user-1',
+    );
+    expect(result).toEqual(response);
+  });
+
   it('requires ADMIN or MANAGER role on the create endpoint', () => {
     const descriptor = Object.getOwnPropertyDescriptor(
       MaintenanceController.prototype,
@@ -60,9 +116,26 @@ describe('MaintenanceController', () => {
     expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
   });
 
+  it('requires ADMIN or MANAGER role on the report endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      MaintenanceController.prototype,
+      'createReport',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected createReport handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
   it('rejects creation without authenticated user context', () => {
     const service = {
       reportFailure: jest.fn(),
+      createMaintenanceReport: jest.fn(),
     } as unknown as MaintenanceService;
     const controller = new MaintenanceController(service);
 
@@ -72,6 +145,26 @@ describe('MaintenanceController', () => {
           resourceId: 'resource-1',
           description: 'Le poste ne demarre plus.',
           priority: MaintenancePriority.HIGH,
+        },
+        {},
+      ),
+    ).toThrow(new UnauthorizedException('Utilisateur non authentifie.'));
+  });
+
+  it('rejects report creation without authenticated user context', () => {
+    const service = {
+      reportFailure: jest.fn(),
+      createMaintenanceReport: jest.fn(),
+    } as unknown as MaintenanceService;
+    const controller = new MaintenanceController(service);
+
+    expect(() =>
+      controller.createReport(
+        'ticket-1',
+        {
+          diagnosis: 'Diagnostic technique.',
+          probableCause: 'Cause probable.',
+          severity: MaintenanceSeverity.MEDIUM,
         },
         {},
       ),
