@@ -119,6 +119,45 @@ describe('NotificationsService', () => {
     });
   });
 
+  it('lists read notifications visible to the user', async () => {
+    const readAt = new Date('2026-06-04T09:20:00.000Z');
+    client.notification.count.mockResolvedValue(1);
+    client.notification.findMany.mockResolvedValue([
+      {
+        ...notification,
+        recipientId: null,
+        readAt,
+        updatedAt: readAt,
+      },
+    ]);
+
+    const result = await service.listNotifications('user-1', {
+      page: 0,
+      limit: 250,
+      read: true,
+    });
+
+    expect(client.notification.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [{ recipientId: 'user-1' }, { recipientId: null }],
+        readAt: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: 0,
+      take: 100,
+    });
+    expect(result.data[0]).toMatchObject({
+      recipientId: null,
+      readAt: '2026-06-04T09:20:00.000Z',
+    });
+    expect(result.meta).toEqual({
+      page: 1,
+      limit: 100,
+      total: 1,
+      totalPages: 1,
+    });
+  });
+
   it('counts unread notifications visible to the user', async () => {
     client.notification.count.mockResolvedValue(3);
 
@@ -154,6 +193,35 @@ describe('NotificationsService', () => {
       where: { id: 'notification-1' },
       data: { readAt: expect.any(Date) as Date },
     });
+    expect(result.readAt).toBe('2026-06-04T09:20:00.000Z');
+  });
+
+  it('marks a global notification as read when it is visible to the user', async () => {
+    const readAt = new Date('2026-06-04T09:20:00.000Z');
+    client.notification.findFirst.mockResolvedValue({
+      ...notification,
+      recipientId: null,
+    });
+    client.notification.update.mockResolvedValue({
+      ...notification,
+      recipientId: null,
+      readAt,
+      updatedAt: readAt,
+    });
+
+    const result = await service.markAsRead('notification-global', 'user-1');
+
+    expect(client.notification.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'notification-global',
+        OR: [{ recipientId: 'user-1' }, { recipientId: null }],
+      },
+    });
+    expect(client.notification.update).toHaveBeenCalledWith({
+      where: { id: 'notification-1' },
+      data: { readAt: expect.any(Date) as Date },
+    });
+    expect(result.recipientId).toBeNull();
     expect(result.readAt).toBe('2026-06-04T09:20:00.000Z');
   });
 
