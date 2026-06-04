@@ -12,6 +12,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
 import { ListResourceAssignmentsQueryDto } from './dto/list-resource-assignments-query.dto';
 import {
@@ -64,7 +65,10 @@ type AssignmentWithReadRelations = ResourceAssignment & {
 
 @Injectable()
 export class ResourceAssignmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async listResourceAssignmentsByResource(
     resourceId: string,
@@ -187,6 +191,12 @@ export class ResourceAssignmentsService {
         data: { status: ResourceStatus.ASSIGNED },
       });
 
+      await this.notificationsService.notifyResourceAssigned(
+        tx,
+        createdAssignment.id,
+        createdAssignment.userId,
+      );
+
       return createdAssignment;
     });
 
@@ -243,6 +253,12 @@ export class ResourceAssignmentsService {
         where: { id: existingAssignment.resourceId },
         data: { status: ResourceStatus.AVAILABLE },
       });
+
+      await this.notificationsService.notifyResourceReturned(
+        tx,
+        returnedAssignment.id,
+        returnedAssignment.userId,
+      );
 
       return returnedAssignment;
     });
