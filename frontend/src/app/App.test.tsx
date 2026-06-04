@@ -36,6 +36,16 @@ const resourceListResponse = {
   },
 };
 
+const emptyResourceListResponse = {
+  data: [],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 0,
+    totalPages: 0,
+  },
+};
+
 const resourceDetailResponse = {
   id: 'resource-1',
   inventoryCode: 'INV-INFO-2026-0001',
@@ -293,6 +303,24 @@ describe('Login page', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('clears an expired authenticated session before rendering protected pages', async () => {
+    window.history.pushState({}, '', '/dashboard');
+    window.sessionStorage.setItem(
+      'grm.auth.session',
+      JSON.stringify({
+        accessToken: loginResponse.accessToken,
+        expiresAt: Date.now() - 1_000,
+        user: loginResponse.user,
+      }),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /connexion/i })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem('grm.auth.session')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('shows a clear error when credentials are rejected', async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
@@ -411,6 +439,121 @@ describe('Login page', () => {
         body: JSON.stringify({
           name: 'Ecran Dell',
           inventoryCode: 'INV-INFO-2026-0002',
+          category: 'Informatique',
+        }),
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('loads an empty resources inventory without showing an error', async () => {
+    window.history.pushState({}, '', '/resources');
+    window.sessionStorage.setItem(
+      'grm.auth.session',
+      JSON.stringify({
+        accessToken: loginResponse.accessToken,
+        expiresAt: Date.now() + loginResponse.expiresIn * 1000,
+        user: loginResponse.user,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(jsonResponse(emptyResourceListResponse));
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /ressources materielles/i })).toBeInTheDocument();
+    expect(await screen.findByText(/aucune ressource trouvee/i)).toBeInTheDocument();
+    expect(screen.queryByText(/impossible de charger l'inventaire/i)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/resources?page=1&limit=8&createdAtSort=desc',
+      expect.any(Object),
+    );
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.headers).toMatchObject({
+      Authorization: 'Bearer valid-access-token',
+    });
+  });
+
+  it('validates a short inventory code before creating a resource', async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, '', '/resources');
+    window.sessionStorage.setItem(
+      'grm.auth.session',
+      JSON.stringify({
+        accessToken: loginResponse.accessToken,
+        expiresAt: Date.now() + loginResponse.expiresIn * 1000,
+        user: loginResponse.user,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(jsonResponse(emptyResourceListResponse));
+
+    render(<App />);
+
+    const createRegion = await screen.findByRole('region', { name: /nouvelle ressource/i });
+
+    await user.type(within(createRegion).getByLabelText(/^nom$/i), 'Ecran Dell 24 pouces');
+    await user.type(within(createRegion).getByLabelText(/reference inventaire/i), 'A');
+    await user.type(within(createRegion).getByLabelText(/^categorie$/i), 'Informatique');
+    await user.click(within(createRegion).getByRole('button', { name: /creer la ressource/i }));
+
+    expect(
+      await screen.findByText(/la reference inventaire doit contenir au moins 2 caracteres/i),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows API validation messages when resource creation is rejected', async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, '', '/resources');
+    window.sessionStorage.setItem(
+      'grm.auth.session',
+      JSON.stringify({
+        accessToken: loginResponse.accessToken,
+        expiresAt: Date.now() + loginResponse.expiresIn * 1000,
+        user: loginResponse.user,
+      }),
+    );
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.includes('/resources?')) {
+        return Promise.resolve(jsonResponse(emptyResourceListResponse));
+      }
+
+      if (url.endsWith('/resources') && method === 'POST') {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              message: ['Une ressource avec cette reference inventaire existe deja.'],
+            },
+            409,
+          ),
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    const createRegion = await screen.findByRole('region', { name: /nouvelle ressource/i });
+
+    await user.type(within(createRegion).getByLabelText(/^nom$/i), '  Ecran Dell 24 pouces  ');
+    await user.type(
+      within(createRegion).getByLabelText(/reference inventaire/i),
+      '  INV-SCREEN-2026-0001  ',
+    );
+    await user.type(within(createRegion).getByLabelText(/^categorie$/i), '  Informatique  ');
+    await user.click(within(createRegion).getByRole('button', { name: /creer la ressource/i }));
+
+    expect(
+      await screen.findByText(/une ressource avec cette reference inventaire existe deja/i),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/resources',
+      expect.objectContaining({
+        body: JSON.stringify({
+          name: 'Ecran Dell 24 pouces',
+          inventoryCode: 'INV-SCREEN-2026-0001',
           category: 'Informatique',
         }),
         method: 'POST',
