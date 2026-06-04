@@ -1,10 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+  Notification,
   NotificationEntityType,
   NotificationType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
+import {
+  NotificationListResponseDto,
+  NotificationResponseDto,
+  NotificationUnreadCountResponseDto,
+} from './dto/notification-response.dto';
 
 type NotificationWriteClient = Prisma.TransactionClient | PrismaService;
 
@@ -20,6 +27,73 @@ interface CreateSystemNotificationInput {
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listNotifications(
+    userId: string,
+    query: ListNotificationsQueryDto,
+  ): Promise<NotificationListResponseDto> {
+    const page = Math.max(query.page ?? 1, 1);
+    const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
+    const where = this.buildReadableNotificationWhere(userId, query.read);
+    const [total, notifications] = await Promise.all([
+      this.prisma.notification.count({ where }),
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: notifications.map((notification) =>
+        this.toNotificationResponse(notification),
+      ),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getUnreadCount(
+    userId: string,
+  ): Promise<NotificationUnreadCountResponseDto> {
+    const unreadCount = await this.prisma.notification.count({
+      where: this.buildReadableNotificationWhere(userId, false),
+    });
+
+    return { unreadCount };
+  }
+
+  async markAsRead(
+    notificationId: string,
+    userId: string,
+  ): Promise<NotificationResponseDto> {
+    const notification = await this.prisma.notification.findFirst({
+      where: {
+        id: notificationId,
+        OR: [{ recipientId: userId }, { recipientId: null }],
+      },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification introuvable.');
+    }
+
+    if (notification.readAt) {
+      return this.toNotificationResponse(notification);
+    }
+
+    const readNotification = await this.prisma.notification.update({
+      where: { id: notification.id },
+      data: { readAt: new Date() },
+    });
+
+    return this.toNotificationResponse(readNotification);
+  }
 
   async createSystemNotification(
     input: CreateSystemNotificationInput,
@@ -139,5 +213,41 @@ export class NotificationsService {
       },
       client,
     );
+  }
+
+  private buildReadableNotificationWhere(
+    userId: string,
+    read?: boolean,
+  ): Prisma.NotificationWhereInput {
+    const where: Prisma.NotificationWhereInput = {
+      OR: [{ recipientId: userId }, { recipientId: null }],
+    };
+
+    if (read === true) {
+      where.readAt = { not: null };
+    }
+
+    if (read === false) {
+      where.readAt = null;
+    }
+
+    return where;
+  }
+
+  private toNotificationResponse(
+    notification: Notification,
+  ): NotificationResponseDto {
+    return {
+      id: notification.id,
+      recipientId: notification.recipientId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      entityType: notification.entityType,
+      entityId: notification.entityId,
+      readAt: notification.readAt?.toISOString() ?? null,
+      createdAt: notification.createdAt.toISOString(),
+      updatedAt: notification.updatedAt.toISOString(),
+    };
   }
 }

@@ -1,18 +1,49 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../modules/auth/useAuth';
+import { getUnreadNotificationCount } from '../modules/notifications/notificationsService';
 
 const navigationItems = [
   { label: 'Dashboard', path: '/dashboard', enabled: true },
   { label: 'Ressources', path: '/resources', enabled: true },
   { label: 'Affectations', path: '/assignments', enabled: true },
   { label: 'Maintenance', path: '/maintenance', enabled: true },
+  { label: 'Notifications', path: '/notifications', enabled: true },
   { label: 'Fournisseurs', path: '/dashboard', enabled: false },
   { label: "Appels d'offres", path: '/dashboard', enabled: false },
 ];
 
 export function MainLayout() {
-  const { logout, user } = useAuth();
+  const { accessToken, logout, user } = useAuth();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (!accessToken) {
+      setUnreadCount(null);
+      return;
+    }
+
+    try {
+      const response = await getUnreadNotificationCount(accessToken);
+      setUnreadCount(response.unreadCount);
+    } catch {
+      setUnreadCount(null);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    function handleNotificationsUpdated() {
+      void refreshUnreadCount();
+    }
+
+    void refreshUnreadCount();
+    window.addEventListener('grm:notifications-updated', handleNotificationsUpdated);
+
+    return () => {
+      window.removeEventListener('grm:notifications-updated', handleNotificationsUpdated);
+    };
+  }, [refreshUnreadCount]);
 
   function handleLogout() {
     logout();
@@ -33,7 +64,12 @@ export function MainLayout() {
           {navigationItems.map((item) =>
             item.enabled ? (
               <NavLink className="sidebar-link" key={item.label} to={item.path}>
-                {item.label}
+                <span>{item.label}</span>
+                {item.path === '/notifications' && unreadCount ? (
+                  <span className="sidebar-badge" aria-label={`${unreadCount} notifications non lues`}>
+                    {unreadCount}
+                  </span>
+                ) : null}
               </NavLink>
             ) : (
               <span className="sidebar-link sidebar-link-disabled" key={item.label}>

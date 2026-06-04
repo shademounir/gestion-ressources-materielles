@@ -209,6 +209,45 @@ const createdSupplierReturnResponse = {
   updatedAt: '2026-06-03T12:00:00.000Z',
 };
 
+const notificationListResponse = {
+  data: [
+    {
+      id: 'notification-1',
+      recipientId: 'user-1',
+      type: 'RESOURCE_ASSIGNED',
+      title: 'Ressource affectee',
+      message: 'Une ressource materielle a ete affectee a un utilisateur.',
+      entityType: 'RESOURCE_ASSIGNMENT',
+      entityId: 'assignment-1',
+      readAt: null,
+      createdAt: '2026-06-04T09:00:00.000Z',
+      updatedAt: '2026-06-04T09:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const readNotificationResponse = {
+  ...notificationListResponse.data[0],
+  readAt: '2026-06-04T09:20:00.000Z',
+  updatedAt: '2026-06-04T09:20:00.000Z',
+};
+
+const emptyNotificationListResponse = {
+  data: [],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 0,
+    totalPages: 0,
+  },
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -300,7 +339,14 @@ describe('Login page', () => {
       await screen.findByRole('heading', { name: /pilotage des ressources materielles/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/admin user/i)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/notifications/unread-count',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer valid-access-token',
+        }) as HeadersInit,
+      }),
+    );
   });
 
   it('clears an expired authenticated session before rendering protected pages', async () => {
@@ -497,7 +543,12 @@ describe('Login page', () => {
     expect(
       await screen.findByText(/la reference inventaire doit contenir au moins 2 caracteres/i),
     ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/resources',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
   });
 
   it('shows API validation messages when resource creation is rejected', async () => {
@@ -796,4 +847,59 @@ describe('Login page', () => {
       }),
     );
   }, 10_000);
+
+  it('shows notifications and marks one as read from the authenticated UI', async () => {
+    const user = userEvent.setup();
+    let notificationRead = false;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.endsWith('/notifications/unread-count')) {
+        return Promise.resolve(jsonResponse({ unreadCount: notificationRead ? 0 : 1 }));
+      }
+
+      if (url.includes('/notifications?')) {
+        return Promise.resolve(
+          jsonResponse(notificationRead ? emptyNotificationListResponse : notificationListResponse),
+        );
+      }
+
+      if (url.endsWith('/notifications/notification-1/read') && method === 'PATCH') {
+        notificationRead = true;
+        return Promise.resolve(jsonResponse(readNotificationResponse));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('link', { name: /notifications/i }));
+
+    expect(await screen.findByRole('heading', { name: /centre de notifications/i })).toBeInTheDocument();
+    expect(await screen.findByText('Ressource affectee')).toBeInTheDocument();
+    expect(screen.getByText(/une ressource materielle a ete affectee/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 non lues/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /marquer comme lue/i }));
+
+    expect(await screen.findByText(/notification marquee comme lue/i)).toBeInTheDocument();
+    expect(await screen.findByText(/^Aucune notification$/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/notifications/notification-1/read',
+      expect.objectContaining({
+        method: 'PATCH',
+      }),
+    );
+  });
 });

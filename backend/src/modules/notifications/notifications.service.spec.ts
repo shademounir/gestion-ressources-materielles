@@ -1,12 +1,34 @@
-import { NotificationEntityType, NotificationType } from '@prisma/client';
+import { NotFoundException } from '@nestjs/common';
+import {
+  Notification,
+  NotificationEntityType,
+  NotificationType,
+} from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
 
 type NotificationClientMock = {
   notification: {
+    count: jest.Mock;
     create: jest.Mock;
+    findFirst: jest.Mock;
+    findMany: jest.Mock;
+    update: jest.Mock;
   };
 };
+
+const notification = {
+  id: 'notification-1',
+  recipientId: 'user-1',
+  type: NotificationType.RESOURCE_ASSIGNED,
+  title: 'Ressource affectee',
+  message: 'Une ressource materielle a ete affectee a un utilisateur.',
+  entityType: NotificationEntityType.RESOURCE_ASSIGNMENT,
+  entityId: 'assignment-1',
+  readAt: null,
+  createdAt: new Date('2026-06-04T09:00:00.000Z'),
+  updatedAt: new Date('2026-06-04T09:00:00.000Z'),
+} satisfies Notification;
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -16,7 +38,11 @@ describe('NotificationsService', () => {
   beforeEach(() => {
     client = {
       notification: {
+        count: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'notification-1' }),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn(),
       },
     };
     writeClient = client as unknown as PrismaService;
@@ -43,6 +69,114 @@ describe('NotificationsService', () => {
         entityId: 'assignment-1',
       },
     });
+  });
+
+  it('lists user and global notifications with unread filtering', async () => {
+    client.notification.count.mockResolvedValue(1);
+    client.notification.findMany.mockResolvedValue([notification]);
+
+    const result = await service.listNotifications('user-1', {
+      page: 2,
+      limit: 10,
+      read: false,
+    });
+
+    const expectedWhere = {
+      OR: [{ recipientId: 'user-1' }, { recipientId: null }],
+      readAt: null,
+    };
+    expect(client.notification.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+    expect(client.notification.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      orderBy: { createdAt: 'desc' },
+      skip: 10,
+      take: 10,
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'notification-1',
+          recipientId: 'user-1',
+          type: NotificationType.RESOURCE_ASSIGNED,
+          title: 'Ressource affectee',
+          message:
+            'Une ressource materielle a ete affectee a un utilisateur.',
+          entityType: NotificationEntityType.RESOURCE_ASSIGNMENT,
+          entityId: 'assignment-1',
+          readAt: null,
+          createdAt: '2026-06-04T09:00:00.000Z',
+          updatedAt: '2026-06-04T09:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+  });
+
+  it('counts unread notifications visible to the user', async () => {
+    client.notification.count.mockResolvedValue(3);
+
+    const result = await service.getUnreadCount('user-1');
+
+    expect(client.notification.count).toHaveBeenCalledWith({
+      where: {
+        OR: [{ recipientId: 'user-1' }, { recipientId: null }],
+        readAt: null,
+      },
+    });
+    expect(result).toEqual({ unreadCount: 3 });
+  });
+
+  it('marks a private or global notification as read', async () => {
+    const readAt = new Date('2026-06-04T09:20:00.000Z');
+    client.notification.findFirst.mockResolvedValue(notification);
+    client.notification.update.mockResolvedValue({
+      ...notification,
+      readAt,
+      updatedAt: readAt,
+    });
+
+    const result = await service.markAsRead('notification-1', 'user-1');
+
+    expect(client.notification.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'notification-1',
+        OR: [{ recipientId: 'user-1' }, { recipientId: null }],
+      },
+    });
+    expect(client.notification.update).toHaveBeenCalledWith({
+      where: { id: 'notification-1' },
+      data: { readAt: expect.any(Date) as Date },
+    });
+    expect(result.readAt).toBe('2026-06-04T09:20:00.000Z');
+  });
+
+  it('keeps mark as read idempotent when already read', async () => {
+    const readNotification = {
+      ...notification,
+      readAt: new Date('2026-06-04T09:20:00.000Z'),
+    };
+    client.notification.findFirst.mockResolvedValue(readNotification);
+
+    const result = await service.markAsRead('notification-1', 'user-1');
+
+    expect(client.notification.update).not.toHaveBeenCalled();
+    expect(result.readAt).toBe('2026-06-04T09:20:00.000Z');
+  });
+
+  it('rejects mark as read for inaccessible notifications', async () => {
+    client.notification.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.markAsRead('notification-unknown', 'user-1'),
+    ).rejects.toThrow(new NotFoundException('Notification introuvable.'));
+    expect(client.notification.update).not.toHaveBeenCalled();
   });
 
   it('creates resource assignment notifications', async () => {
