@@ -2,11 +2,20 @@ import 'reflect-metadata';
 import { ResourceAssignmentStatus, ResourceStatus } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
 import { ResourceAssignmentDetailDto } from './dto/resource-assignment-read.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
 import { ResourceAssignmentsController } from './resource-assignments.controller';
 import { ResourceAssignmentsService } from './resource-assignments.service';
+
+const authenticatedRequest: AuthenticatedRequest = {
+  user: {
+    userId: 'admin-1',
+    email: 'admin@grm.local',
+    roles: [UserRole.ADMIN],
+  },
+};
 
 describe('ResourceAssignmentsController', () => {
   it('delegates resource assignment to ResourceAssignmentsService', async () => {
@@ -37,9 +46,9 @@ describe('ResourceAssignmentsController', () => {
       comment: 'Affectation pour le laboratoire informatique',
     };
 
-    const result = await controller.create(dto);
+    const result = await controller.create(dto, authenticatedRequest);
 
-    expect(assignResourceMock).toHaveBeenCalledWith(dto);
+    expect(assignResourceMock).toHaveBeenCalledWith(dto, 'admin-1');
     expect(result).toEqual(assignmentResponse);
   });
 
@@ -69,9 +78,17 @@ describe('ResourceAssignmentsController', () => {
       returnComment: 'Ressource retournee en bon etat',
     };
 
-    const result = await controller.returnResource('assignment-1', dto);
+    const result = await controller.returnResource(
+      'assignment-1',
+      dto,
+      authenticatedRequest,
+    );
 
-    expect(returnResourceMock).toHaveBeenCalledWith('assignment-1', dto);
+    expect(returnResourceMock).toHaveBeenCalledWith(
+      'assignment-1',
+      dto,
+      'admin-1',
+    );
     expect(result).toEqual(assignmentResponse);
   });
 

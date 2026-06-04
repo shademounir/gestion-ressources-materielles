@@ -18,6 +18,14 @@ import { MaintenanceController } from './maintenance.controller';
 import { MaintenanceService } from './maintenance.service';
 
 describe('MaintenanceController', () => {
+  const authenticatedRequest = {
+    user: {
+      userId: 'user-1',
+      email: 'manager@faculty.test',
+      roles: [UserRole.MANAGER],
+    },
+  };
+
   it('delegates failure reporting to MaintenanceService with authenticated user', async () => {
     const response: MaintenanceTicketResponseDto = {
       id: 'ticket-1',
@@ -45,13 +53,7 @@ describe('MaintenanceController', () => {
       priority: MaintenancePriority.HIGH,
     };
 
-    const result = await controller.create(dto, {
-      user: {
-        userId: 'user-1',
-        email: 'manager@faculty.test',
-        roles: [UserRole.MANAGER],
-      },
-    });
+    const result = await controller.create(dto, authenticatedRequest);
 
     expect(reportFailureMock).toHaveBeenCalledWith(dto, 'user-1');
     expect(result).toEqual(response);
@@ -93,13 +95,11 @@ describe('MaintenanceController', () => {
       recommendations: 'Remplacer la carte mere.',
     };
 
-    const result = await controller.createReport('ticket-1', dto, {
-      user: {
-        userId: 'user-1',
-        email: 'manager@faculty.test',
-        roles: [UserRole.MANAGER],
-      },
-    });
+    const result = await controller.createReport(
+      'ticket-1',
+      dto,
+      authenticatedRequest,
+    );
 
     expect(createMaintenanceReportMock).toHaveBeenCalledWith(
       'ticket-1',
@@ -144,11 +144,16 @@ describe('MaintenanceController', () => {
       startedAt: '2026-06-03T13:00:00.000Z',
     };
 
-    const result = await controller.createIntervention('ticket-1', dto);
+    const result = await controller.createIntervention(
+      'ticket-1',
+      dto,
+      authenticatedRequest,
+    );
 
     expect(createMaintenanceInterventionMock).toHaveBeenCalledWith(
       'ticket-1',
       dto,
+      'user-1',
     );
     expect(result).toEqual(response);
   });
@@ -202,9 +207,17 @@ describe('MaintenanceController', () => {
       comment: 'Retour envoye avec bon de prise en charge.',
     };
 
-    const result = await controller.createSupplierReturn('ticket-1', dto);
+    const result = await controller.createSupplierReturn(
+      'ticket-1',
+      dto,
+      authenticatedRequest,
+    );
 
-    expect(createSupplierReturnMock).toHaveBeenCalledWith('ticket-1', dto);
+    expect(createSupplierReturnMock).toHaveBeenCalledWith(
+      'ticket-1',
+      dto,
+      'user-1',
+    );
     expect(result).toEqual(response);
   });
 

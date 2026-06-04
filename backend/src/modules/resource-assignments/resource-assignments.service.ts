@@ -12,6 +12,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
 import { ListResourceAssignmentsQueryDto } from './dto/list-resource-assignments-query.dto';
@@ -67,6 +68,7 @@ type AssignmentWithReadRelations = ResourceAssignment & {
 export class ResourceAssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -129,6 +131,7 @@ export class ResourceAssignmentsService {
 
   async assignResource(
     createResourceAssignmentDto: CreateResourceAssignmentDto,
+    actorUserId?: string | null,
   ): Promise<ResourceAssignmentResponseDto> {
     const comment = createResourceAssignmentDto.comment?.trim() || null;
 
@@ -200,12 +203,18 @@ export class ResourceAssignmentsService {
       return createdAssignment;
     });
 
+    await this.auditLogsService.logResourceAssigned(
+      assignment.id,
+      actorUserId,
+    );
+
     return this.toResourceAssignmentResponse(assignment);
   }
 
   async returnResource(
     assignmentId: string,
     returnResourceAssignmentDto: ReturnResourceAssignmentDto,
+    actorUserId?: string | null,
   ): Promise<ResourceAssignmentResponseDto> {
     const returnComment =
       returnResourceAssignmentDto.returnComment?.trim() || null;
@@ -262,6 +271,11 @@ export class ResourceAssignmentsService {
 
       return returnedAssignment;
     });
+
+    await this.auditLogsService.logResourceReturned(
+      assignment.id,
+      actorUserId,
+    );
 
     return this.toResourceAssignmentResponse(assignment);
   }

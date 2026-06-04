@@ -17,6 +17,7 @@ import {
   SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateMaintenanceInterventionDto } from './dto/create-maintenance-intervention.dto';
 import { CreateMaintenanceReportDto } from './dto/create-maintenance-report.dto';
@@ -138,6 +139,7 @@ type SupplierReturnWithRelations = SupplierReturn & {
 export class MaintenanceService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -201,6 +203,11 @@ export class MaintenanceService {
 
       return createdTicket;
     });
+
+    await this.auditLogsService.logMaintenanceReported(
+      ticket.id,
+      reportedById,
+    );
 
     return this.toMaintenanceTicketResponse(ticket);
   }
@@ -274,12 +281,18 @@ export class MaintenanceService {
       return createdReport;
     });
 
+    await this.auditLogsService.logMaintenanceReportCreated(
+      report.id,
+      authorId,
+    );
+
     return this.toMaintenanceReportResponse(report);
   }
 
   async createMaintenanceIntervention(
     maintenanceTicketId: string,
     createMaintenanceInterventionDto: CreateMaintenanceInterventionDto,
+    actorUserId?: string | null,
   ): Promise<MaintenanceInterventionResponseDto> {
     const technicianName = createMaintenanceInterventionDto.technicianName.trim();
     const description = createMaintenanceInterventionDto.description.trim();
@@ -372,12 +385,18 @@ export class MaintenanceService {
       return intervention;
     });
 
+    await this.auditLogsService.logMaintenanceInterventionCreated(
+      intervention.id,
+      actorUserId,
+    );
+
     return this.toMaintenanceInterventionResponse(intervention);
   }
 
   async createSupplierReturn(
     maintenanceTicketId: string,
     createSupplierReturnDto: CreateSupplierReturnDto,
+    actorUserId?: string | null,
   ): Promise<SupplierReturnResponseDto> {
     const reason = createSupplierReturnDto.reason.trim();
     const sentAt = new Date(createSupplierReturnDto.sentAt);
@@ -490,6 +509,11 @@ export class MaintenanceService {
 
       return createdSupplierReturn;
     });
+
+    await this.auditLogsService.logSupplierReturnCreated(
+      supplierReturn.id,
+      actorUserId,
+    );
 
     return this.toSupplierReturnResponse(supplierReturn);
   }

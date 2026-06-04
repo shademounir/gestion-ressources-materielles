@@ -128,6 +128,30 @@ enum NotificationEntityType {
   SUPPLIER_RETURN
 }
 
+enum AuditAction {
+  RESOURCE_CREATED
+  RESOURCE_STATUS_UPDATED
+  RESOURCE_ASSIGNED
+  RESOURCE_RETURNED
+  MAINTENANCE_REPORTED
+  MAINTENANCE_REPORT_CREATED
+  MAINTENANCE_INTERVENTION_CREATED
+  SUPPLIER_RETURN_CREATED
+  USER_CREATED
+  USER_ROLE_UPDATED
+  USER_DEACTIVATED
+}
+
+enum AuditEntityType {
+  RESOURCE
+  RESOURCE_ASSIGNMENT
+  MAINTENANCE_TICKET
+  MAINTENANCE_REPORT
+  MAINTENANCE_INTERVENTION
+  SUPPLIER_RETURN
+  USER
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -426,16 +450,17 @@ model Notification {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  actorId    String?
-  actor      User?    @relation(fields: [actorId], references: [id])
-  action     String
-  targetType String
-  targetId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id         String          @id @default(uuid())
+  userId     String?
+  user       User?           @relation(fields: [userId], references: [id])
+  action     AuditAction
+  entityType AuditEntityType
+  entityId   String
+  details    Json?
+  createdAt  DateTime        @default(now())
 
-  @@index([actorId])
-  @@index([targetType, targetId])
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
   @@index([createdAt])
 }

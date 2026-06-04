@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -25,6 +26,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
 import { ResourceAssignmentDetailDto } from './dto/resource-assignment-read.dto';
 import { ResourceAssignmentResponseDto } from './dto/resource-assignment-response.dto';
@@ -69,9 +71,11 @@ export class ResourceAssignmentsController {
   @ApiNotFoundResponse({ description: 'Ressource ou utilisateur introuvable' })
   create(
     @Body() createResourceAssignmentDto: CreateResourceAssignmentDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<ResourceAssignmentResponseDto> {
     return this.resourceAssignmentsService.assignResource(
       createResourceAssignmentDto,
+      request.user?.userId,
     );
   }
 
@@ -91,10 +95,12 @@ export class ResourceAssignmentsController {
   returnResource(
     @Param('id', new ParseUUIDPipe({ version: '4' })) assignmentId: string,
     @Body() returnResourceAssignmentDto: ReturnResourceAssignmentDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<ResourceAssignmentResponseDto> {
     return this.resourceAssignmentsService.returnResource(
       assignmentId,
       returnResourceAssignmentDto,
+      request.user?.userId,
     );
   }
 }

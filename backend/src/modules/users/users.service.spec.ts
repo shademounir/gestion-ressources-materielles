@@ -3,6 +3,7 @@ import { RoleName, UserStatus } from '@prisma/client';
 import { compare } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AssignUserRole } from './dto/assign-user-role.dto';
 import { CreateUserRole } from './dto/create-user.dto';
 import { UsersService } from './users.service';
@@ -32,9 +33,16 @@ type UserCreateMockArgs = {
   };
 };
 
+type AuditLogsServiceMock = {
+  logUserCreated: jest.Mock;
+  logUserRoleUpdated: jest.Mock;
+  logUserDeactivated: jest.Mock;
+};
+
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: PrismaMock;
+  let auditLogsService: AuditLogsServiceMock;
 
   beforeEach(() => {
     prisma = {
@@ -51,7 +59,16 @@ describe('UsersService', () => {
       },
     };
 
-    service = new UsersService(prisma as unknown as PrismaService);
+    auditLogsService = {
+      logUserCreated: jest.fn(),
+      logUserRoleUpdated: jest.fn(),
+      logUserDeactivated: jest.fn(),
+    };
+
+    service = new UsersService(
+      prisma as unknown as PrismaService,
+      auditLogsService as unknown as AuditLogsService,
+    );
   });
 
   it('creates an active user with a hashed password and initial role', async () => {
@@ -72,14 +89,17 @@ describe('UsersService', () => {
       },
     }));
 
-    const result = await service.createUser({
-      firstName: ' Amina ',
-      lastName: ' Bennani ',
-      email: ' Amina.Bennani@Faculty.Test ',
-      password: 'ChangeMe123!',
-      role: CreateUserRole.USER,
-      isActive: true,
-    });
+    const result = await service.createUser(
+      {
+        firstName: ' Amina ',
+        lastName: ' Bennani ',
+        email: ' Amina.Bennani@Faculty.Test ',
+        password: 'ChangeMe123!',
+        role: CreateUserRole.USER,
+        isActive: true,
+      },
+      'admin-1',
+    );
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { email: 'amina.bennani@faculty.test' },
@@ -97,6 +117,10 @@ describe('UsersService', () => {
     await expect(compare('ChangeMe123!', createCall.data.passwordHash)).resolves.toBe(true);
     expect(createCall.data.status).toBe(UserStatus.ACTIVE);
     expect(createCall.data.roleId).toBe('role-user');
+    expect(auditLogsService.logUserCreated).toHaveBeenCalledWith(
+      'user-1',
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'user-1',
       firstName: 'Amina',
@@ -177,7 +201,7 @@ describe('UsersService', () => {
       },
     });
 
-    const result = await service.deactivateUser('user-1');
+    const result = await service.deactivateUser('user-1', 'admin-1');
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
@@ -188,6 +212,10 @@ describe('UsersService', () => {
       data: { status: UserStatus.INACTIVE },
       include: { role: true },
     });
+    expect(auditLogsService.logUserDeactivated).toHaveBeenCalledWith(
+      'user-1',
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'user-1',
       firstName: 'Amina',
@@ -241,9 +269,13 @@ describe('UsersService', () => {
       },
     });
 
-    const result = await service.assignUserRole('user-1', {
-      role: AssignUserRole.MANAGER,
-    });
+    const result = await service.assignUserRole(
+      'user-1',
+      {
+        role: AssignUserRole.MANAGER,
+      },
+      'admin-1',
+    );
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
@@ -259,6 +291,11 @@ describe('UsersService', () => {
       data: { roleId: 'role-manager' },
       include: { role: true },
     });
+    expect(auditLogsService.logUserRoleUpdated).toHaveBeenCalledWith(
+      'user-1',
+      RoleName.MANAGER,
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'user-1',
       firstName: 'Amina',

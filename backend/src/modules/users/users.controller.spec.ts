@@ -1,12 +1,21 @@
 import 'reflect-metadata';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole } from './dto/assign-user-role.dto';
 import { CreateUserRole } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+
+const authenticatedRequest: AuthenticatedRequest = {
+  user: {
+    userId: 'admin-1',
+    email: 'admin@grm.local',
+    roles: [UserRole.ADMIN],
+  },
+};
 
 describe('UsersController', () => {
   it('delegates user creation to UsersService', async () => {
@@ -34,9 +43,9 @@ describe('UsersController', () => {
       isActive: true,
     };
 
-    const result = await controller.create(createUserDto);
+    const result = await controller.create(createUserDto, authenticatedRequest);
 
-    expect(createUserMock).toHaveBeenCalledWith(createUserDto);
+    expect(createUserMock).toHaveBeenCalledWith(createUserDto, 'admin-1');
     expect(result).toEqual(userResponse);
   });
 
@@ -71,9 +80,9 @@ describe('UsersController', () => {
     } as unknown as UsersService;
     const controller = new UsersController(usersService);
 
-    const result = await controller.deactivate('user-1');
+    const result = await controller.deactivate('user-1', authenticatedRequest);
 
-    expect(deactivateUserMock).toHaveBeenCalledWith('user-1');
+    expect(deactivateUserMock).toHaveBeenCalledWith('user-1', 'admin-1');
     expect(result).toEqual(userResponse);
   });
 
@@ -115,9 +124,17 @@ describe('UsersController', () => {
       role: AssignUserRole.MANAGER,
     };
 
-    const result = await controller.assignRole('user-1', assignUserRoleDto);
+    const result = await controller.assignRole(
+      'user-1',
+      assignUserRoleDto,
+      authenticatedRequest,
+    );
 
-    expect(assignUserRoleMock).toHaveBeenCalledWith('user-1', assignUserRoleDto);
+    expect(assignUserRoleMock).toHaveBeenCalledWith(
+      'user-1',
+      assignUserRoleDto,
+      'admin-1',
+    );
     expect(result).toEqual(userResponse);
   });
 

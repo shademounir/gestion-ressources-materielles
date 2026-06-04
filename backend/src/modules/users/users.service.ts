@@ -8,6 +8,7 @@ import { UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole, AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -15,7 +16,10 @@ import { UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
+  ) {}
 
   getFoundationStatus() {
     return {
@@ -25,7 +29,10 @@ export class UsersService {
     };
   }
 
-  async createUser(createUserDto: CreateUserDto): Promise<UserResponseDto> {
+  async createUser(
+    createUserDto: CreateUserDto,
+    actorUserId?: string | null,
+  ): Promise<UserResponseDto> {
     const email = createUserDto.email.trim().toLowerCase();
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -58,10 +65,15 @@ export class UsersService {
       },
     });
 
+    await this.auditLogsService.logUserCreated(createdUser.id, actorUserId);
+
     return this.toUserResponse(createdUser);
   }
 
-  async deactivateUser(id: string): Promise<UserResponseDto> {
+  async deactivateUser(
+    id: string,
+    actorUserId?: string | null,
+  ): Promise<UserResponseDto> {
     const existingUser = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true, deletedAt: true },
@@ -81,12 +93,18 @@ export class UsersService {
       },
     });
 
+    await this.auditLogsService.logUserDeactivated(
+      deactivatedUser.id,
+      actorUserId,
+    );
+
     return this.toUserResponse(deactivatedUser);
   }
 
   async assignUserRole(
     id: string,
     assignUserRoleDto: AssignUserRoleDto,
+    actorUserId?: string | null,
   ): Promise<UserResponseDto> {
     if (!Object.values(AssignUserRole).includes(assignUserRoleDto.role)) {
       throw new BadRequestException('Role utilisateur invalide.');
@@ -117,6 +135,12 @@ export class UsersService {
         role: true,
       },
     });
+
+    await this.auditLogsService.logUserRoleUpdated(
+      updatedUser.id,
+      updatedUser.role.name,
+      actorUserId,
+    );
 
     return this.toUserResponse(updatedUser);
   }

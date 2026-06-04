@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBadRequestResponse,
@@ -16,6 +26,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -41,8 +52,11 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
   @ApiForbiddenResponse({ description: 'Role insuffisant pour creer un utilisateur' })
   @ApiConflictResponse({ description: 'Email deja utilise' })
-  create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    return this.usersService.createUser(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<UserResponseDto> {
+    return this.usersService.createUser(createUserDto, request.user?.userId);
   }
 
   @Patch(':id/deactivate')
@@ -57,8 +71,9 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
   deactivate(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Req() request: AuthenticatedRequest,
   ): Promise<UserResponseDto> {
-    return this.usersService.deactivateUser(id);
+    return this.usersService.deactivateUser(id, request.user?.userId);
   }
 
   @Patch(':id/role')
@@ -75,8 +90,13 @@ export class UsersController {
   assignRole(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() assignUserRoleDto: AssignUserRoleDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<UserResponseDto> {
-    return this.usersService.assignUserRole(id, assignUserRoleDto);
+    return this.usersService.assignUserRole(
+      id,
+      assignUserRoleDto,
+      request.user?.userId,
+    );
   }
 
   @Patch(':id/department')

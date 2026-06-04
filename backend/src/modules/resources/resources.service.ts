@@ -6,6 +6,7 @@ import {
   SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import {
   ListResourcesQueryDto,
@@ -47,10 +48,14 @@ type ResourceWithSupplier = Resource & {
 
 @Injectable()
 export class ResourcesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
+  ) {}
 
   async createResource(
     createResourceDto: CreateResourceDto,
+    actorUserId?: string | null,
   ): Promise<ResourceResponseDto> {
     const name = createResourceDto.name.trim();
     const inventoryCode = createResourceDto.inventoryCode.trim();
@@ -99,6 +104,11 @@ export class ResourcesService {
         supplierId,
       },
     });
+
+    await this.auditLogsService.logResourceCreated(
+      createdResource.id,
+      actorUserId,
+    );
 
     return this.toResourceResponse(createdResource);
   }
@@ -160,6 +170,7 @@ export class ResourcesService {
   async updateResourceStatus(
     resourceId: string,
     updateResourceStatusDto: UpdateResourceStatusDto,
+    actorUserId?: string | null,
   ): Promise<ResourceDetailResponseDto> {
     const existingResource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
@@ -175,6 +186,12 @@ export class ResourcesService {
       data: this.buildStatusUpdateData(updateResourceStatusDto.status),
       include: resourceDetailInclude,
     });
+
+    await this.auditLogsService.logResourceStatusUpdated(
+      updatedResource.id,
+      updatedResource.status,
+      actorUserId,
+    );
 
     return this.toResourceDetailResponse(updatedResource);
   }
