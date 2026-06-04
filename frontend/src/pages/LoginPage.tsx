@@ -37,7 +37,7 @@ export function LoginPage() {
         password,
       });
 
-      setSession(response.accessToken, response.user);
+      setSession(response.accessToken, response.user, response.expiresIn);
       void navigate('/dashboard', { replace: true });
     } catch {
       setErrorMessage('Identifiants invalides ou compte non autorise.');

@@ -11,13 +11,30 @@ interface AuthProviderProps {
 interface StoredAuthSession {
   accessToken: string;
   user: AuthenticatedUser;
+  expiresAt: number;
 }
 
 function readStoredSession(): StoredAuthSession | null {
   try {
     const storedSession = window.sessionStorage.getItem(authStorageKey);
 
-    return storedSession ? (JSON.parse(storedSession) as StoredAuthSession) : null;
+    if (!storedSession) {
+      return null;
+    }
+
+    const parsedSession = JSON.parse(storedSession) as Partial<StoredAuthSession>;
+
+    if (
+      !parsedSession.accessToken ||
+      !parsedSession.user ||
+      !parsedSession.expiresAt ||
+      parsedSession.expiresAt <= Date.now()
+    ) {
+      writeStoredSession(null);
+      return null;
+    }
+
+    return parsedSession as StoredAuthSession;
   } catch {
     window.sessionStorage.removeItem(authStorageKey);
     return null;
@@ -61,9 +78,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return updatedSession;
         });
       },
-      setSession: (token, authenticatedUser) => {
+      setSession: (token, authenticatedUser, expiresIn) => {
         const nextSession = {
           accessToken: token,
+          expiresAt: Date.now() + expiresIn * 1000,
           user: authenticatedUser,
         };
         writeStoredSession(nextSession);

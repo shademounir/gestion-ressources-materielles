@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../modules/auth/useAuth';
 import { FeedbackMessage } from '../shared/components/FeedbackMessage';
 import { formatCurrency, formatDate } from '../shared/utils/formatters';
+import { getApiErrorMessage } from '../services/apiClient';
 
 const RESOURCE_PAGE_SIZE = 8;
 
@@ -120,8 +121,17 @@ export function ResourcesPage() {
 
       setResources(response.data);
       setMeta(response.meta);
-    } catch {
-      setErrorMessage("Impossible de charger l'inventaire des ressources.");
+    } catch (error) {
+      setResources([]);
+      setMeta({
+        page: 1,
+        limit: RESOURCE_PAGE_SIZE,
+        total: 0,
+        totalPages: 0,
+      });
+      setErrorMessage(
+        getApiErrorMessage(error, "Impossible de charger l'inventaire des ressources."),
+      );
     } finally {
       setIsListLoading(false);
     }
@@ -179,6 +189,11 @@ export function ResourcesPage() {
       return;
     }
 
+    if (payload.inventoryCode.length < 2) {
+      setErrorMessage('La reference inventaire doit contenir au moins 2 caracteres.');
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -189,8 +204,13 @@ export function ResourcesPage() {
       setSuccessMessage('Ressource creee avec succes.');
       await fetchResources();
       void navigate(`/resources/${createdResource.id}`);
-    } catch {
-      setErrorMessage('Creation impossible. Verifiez les champs ou la reference inventaire.');
+    } catch (error) {
+      setErrorMessage(
+        getApiErrorMessage(
+          error,
+          'Creation impossible. Verifiez les champs ou la reference inventaire.',
+        ),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -461,6 +481,8 @@ export function ResourcesPage() {
                   id="resource-inventory-code"
                   value={form.inventoryCode}
                   onChange={(event) => updateFormField('inventoryCode', event.target.value)}
+                  minLength={2}
+                  placeholder="INV-INFO-2026-0001"
                   required
                 />
               </label>
