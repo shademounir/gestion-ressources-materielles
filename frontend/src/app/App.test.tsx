@@ -279,6 +279,7 @@ describe('Login page', () => {
       'grm.auth.session',
       JSON.stringify({
         accessToken: loginResponse.accessToken,
+        expiresAt: Date.now() + loginResponse.expiresIn * 1000,
         user: loginResponse.user,
       }),
     );

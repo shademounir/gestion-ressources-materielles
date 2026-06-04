@@ -6,7 +6,7 @@ export interface AuthState {
   user: AuthenticatedUser | null;
   isAuthenticated: boolean;
   setAccessToken: (token: string | null) => void;
-  setSession: (token: string, user: AuthenticatedUser) => void;
+  setSession: (token: string, user: AuthenticatedUser, expiresIn: number) => void;
   logout: () => void;
 }
 
