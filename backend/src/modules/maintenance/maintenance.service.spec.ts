@@ -13,6 +13,7 @@ import {
   SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MaintenanceService } from './maintenance.service';
 
@@ -57,10 +58,18 @@ type NotificationsServiceMock = {
   notifySupplierReturnCreated: jest.Mock;
 };
 
+type AuditLogsServiceMock = {
+  logMaintenanceReported: jest.Mock;
+  logMaintenanceReportCreated: jest.Mock;
+  logMaintenanceInterventionCreated: jest.Mock;
+  logSupplierReturnCreated: jest.Mock;
+};
+
 describe('MaintenanceService', () => {
   let service: MaintenanceService;
   let prisma: PrismaMock;
   let tx: TransactionMock;
+  let auditLogsService: AuditLogsServiceMock;
   let notificationsService: NotificationsServiceMock;
 
   beforeEach(() => {
@@ -104,8 +113,15 @@ describe('MaintenanceService', () => {
       notifyMaintenanceInterventionCreated: jest.fn(),
       notifySupplierReturnCreated: jest.fn(),
     };
+    auditLogsService = {
+      logMaintenanceReported: jest.fn(),
+      logMaintenanceReportCreated: jest.fn(),
+      logMaintenanceInterventionCreated: jest.fn(),
+      logSupplierReturnCreated: jest.fn(),
+    };
     service = new MaintenanceService(
       prisma as unknown as PrismaService,
+      auditLogsService as unknown as AuditLogsService,
       notificationsService as unknown as NotificationsService,
     );
   });
@@ -159,13 +175,17 @@ describe('MaintenanceService', () => {
       },
     });
 
-    const result = await service.createSupplierReturn('ticket-1', {
-      supplierId: 'supplier-1',
-      reason: ' Diagnostic confirme une panne sous garantie. ',
-      sentAt: '2026-06-03T14:00:00.000Z',
-      expectedReturnAt: '2026-06-17T14:00:00.000Z',
-      comment: ' Retour envoye avec bon de prise en charge. ',
-    });
+    const result = await service.createSupplierReturn(
+      'ticket-1',
+      {
+        supplierId: 'supplier-1',
+        reason: ' Diagnostic confirme une panne sous garantie. ',
+        sentAt: '2026-06-03T14:00:00.000Z',
+        expectedReturnAt: '2026-06-17T14:00:00.000Z',
+        comment: ' Retour envoye avec bon de prise en charge. ',
+      },
+      'admin-1',
+    );
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.maintenanceTicket.findUnique).toHaveBeenCalledWith({
@@ -240,6 +260,10 @@ describe('MaintenanceService', () => {
     expect(notificationsService.notifySupplierReturnCreated).toHaveBeenCalledWith(
       tx,
       'supplier-return-1',
+    );
+    expect(auditLogsService.logSupplierReturnCreated).toHaveBeenCalledWith(
+      'supplier-return-1',
+      'admin-1',
     );
     expect(result).toEqual({
       id: 'supplier-return-1',
@@ -532,11 +556,15 @@ describe('MaintenanceService', () => {
       },
     });
 
-    const result = await service.createMaintenanceIntervention('ticket-1', {
-      technicianName: ' Technicien maintenance interne ',
-      description: ' Remplacement du bloc alimentation. ',
-      startedAt: '2026-06-03T13:00:00.000Z',
-    });
+    const result = await service.createMaintenanceIntervention(
+      'ticket-1',
+      {
+        technicianName: ' Technicien maintenance interne ',
+        description: ' Remplacement du bloc alimentation. ',
+        startedAt: '2026-06-03T13:00:00.000Z',
+      },
+      'admin-1',
+    );
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.maintenanceTicket.findUnique).toHaveBeenCalledWith({
@@ -585,6 +613,9 @@ describe('MaintenanceService', () => {
     expect(
       notificationsService.notifyMaintenanceInterventionCreated,
     ).toHaveBeenCalledWith(tx, 'intervention-1');
+    expect(
+      auditLogsService.logMaintenanceInterventionCreated,
+    ).toHaveBeenCalledWith('intervention-1', 'admin-1');
     expect(result).toEqual({
       id: 'intervention-1',
       maintenanceTicketId: 'ticket-1',
@@ -855,6 +886,10 @@ describe('MaintenanceService', () => {
     expect(
       notificationsService.notifyMaintenanceReportCreated,
     ).toHaveBeenCalledWith(tx, 'report-1', 'user-1');
+    expect(auditLogsService.logMaintenanceReportCreated).toHaveBeenCalledWith(
+      'report-1',
+      'user-1',
+    );
     expect(result).toEqual({
       id: 'report-1',
       diagnosis: 'Carte mere defectueuse apres test de demarrage.',
@@ -1033,6 +1068,10 @@ describe('MaintenanceService', () => {
     });
     expect(notificationsService.notifyMaintenanceReported).toHaveBeenCalledWith(
       tx,
+      'ticket-1',
+      'user-1',
+    );
+    expect(auditLogsService.logMaintenanceReported).toHaveBeenCalledWith(
       'ticket-1',
       'user-1',
     );

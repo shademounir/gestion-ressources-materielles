@@ -57,10 +57,12 @@ export class MaintenanceController {
   createSupplierReturn(
     @Param('id', new ParseUUIDPipe({ version: '4' })) maintenanceTicketId: string,
     @Body() createSupplierReturnDto: CreateSupplierReturnDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<SupplierReturnResponseDto> {
     return this.maintenanceService.createSupplierReturn(
       maintenanceTicketId,
       createSupplierReturnDto,
+      request.user?.userId,
     );
   }
 
@@ -82,10 +84,12 @@ export class MaintenanceController {
   createIntervention(
     @Param('id', new ParseUUIDPipe({ version: '4' })) maintenanceTicketId: string,
     @Body() createMaintenanceInterventionDto: CreateMaintenanceInterventionDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<MaintenanceInterventionResponseDto> {
     return this.maintenanceService.createMaintenanceIntervention(
       maintenanceTicketId,
       createMaintenanceInterventionDto,
+      request.user?.userId,
     );
   }
 

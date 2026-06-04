@@ -9,6 +9,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ResourceAssignmentsService } from './resource-assignments.service';
 
@@ -45,10 +46,16 @@ type NotificationsServiceMock = {
   notifyResourceReturned: jest.Mock;
 };
 
+type AuditLogsServiceMock = {
+  logResourceAssigned: jest.Mock;
+  logResourceReturned: jest.Mock;
+};
+
 describe('ResourceAssignmentsService', () => {
   let service: ResourceAssignmentsService;
   let prisma: PrismaMock;
   let tx: TransactionMock;
+  let auditLogsService: AuditLogsServiceMock;
   let notificationsService: NotificationsServiceMock;
 
   beforeEach(() => {
@@ -84,8 +91,13 @@ describe('ResourceAssignmentsService', () => {
       notifyResourceAssigned: jest.fn(),
       notifyResourceReturned: jest.fn(),
     };
+    auditLogsService = {
+      logResourceAssigned: jest.fn(),
+      logResourceReturned: jest.fn(),
+    };
     service = new ResourceAssignmentsService(
       prisma as unknown as PrismaService,
+      auditLogsService as unknown as AuditLogsService,
       notificationsService as unknown as NotificationsService,
     );
   });
@@ -329,11 +341,14 @@ describe('ResourceAssignmentsService', () => {
       status: ResourceStatus.ASSIGNED,
     });
 
-    const result = await service.assignResource({
-      resourceId: 'resource-1',
-      userId: 'user-1',
-      comment: ' Affectation pour le laboratoire informatique ',
-    });
+    const result = await service.assignResource(
+      {
+        resourceId: 'resource-1',
+        userId: 'user-1',
+        comment: ' Affectation pour le laboratoire informatique ',
+      },
+      'admin-1',
+    );
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.resource.findUnique).toHaveBeenCalledWith({
@@ -367,6 +382,10 @@ describe('ResourceAssignmentsService', () => {
       tx,
       'assignment-1',
       'user-1',
+    );
+    expect(auditLogsService.logResourceAssigned).toHaveBeenCalledWith(
+      'assignment-1',
+      'admin-1',
     );
     expect(result).toEqual({
       id: 'assignment-1',
@@ -416,9 +435,13 @@ describe('ResourceAssignmentsService', () => {
       status: ResourceStatus.AVAILABLE,
     });
 
-    const result = await service.returnResource('assignment-1', {
-      returnComment: ' Ressource retournee en bon etat ',
-    });
+    const result = await service.returnResource(
+      'assignment-1',
+      {
+        returnComment: ' Ressource retournee en bon etat ',
+      },
+      'admin-1',
+    );
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.resourceAssignment.findUnique).toHaveBeenCalledWith({
@@ -445,6 +468,10 @@ describe('ResourceAssignmentsService', () => {
       tx,
       'assignment-1',
       'user-1',
+    );
+    expect(auditLogsService.logResourceReturned).toHaveBeenCalledWith(
+      'assignment-1',
+      'admin-1',
     );
     expect(result).toEqual({
       id: 'assignment-1',

@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, ResourceStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ResourceCreatedAtSort } from './dto/list-resources-query.dto';
 import { ResourcesService } from './resources.service';
 
@@ -31,9 +32,15 @@ type ResourceCreateMockArgs = {
   };
 };
 
+type AuditLogsServiceMock = {
+  logResourceCreated: jest.Mock;
+  logResourceStatusUpdated: jest.Mock;
+};
+
 describe('ResourcesService', () => {
   let service: ResourcesService;
   let prisma: PrismaMock;
+  let auditLogsService: AuditLogsServiceMock;
 
   beforeEach(() => {
     prisma = {
@@ -48,7 +55,14 @@ describe('ResourcesService', () => {
         findUnique: jest.fn(),
       },
     };
-    service = new ResourcesService(prisma as unknown as PrismaService);
+    auditLogsService = {
+      logResourceCreated: jest.fn(),
+      logResourceStatusUpdated: jest.fn(),
+    };
+    service = new ResourcesService(
+      prisma as unknown as PrismaService,
+      auditLogsService as unknown as AuditLogsService,
+    );
   });
 
   it('creates an available resource with normalized fields and supplier link', async () => {
@@ -61,16 +75,19 @@ describe('ResourcesService', () => {
       updatedAt: new Date('2026-06-02T16:00:00.000Z'),
     }));
 
-    const result = await service.createResource({
-      name: ' Ordinateur portable Dell Latitude 5440 ',
-      inventoryCode: ' INV-INFO-2026-0001 ',
-      category: ' Informatique ',
-      description: ' PC portable destine aux salles informatiques ',
-      serialNumber: ' SN-DL-5440-2026-001 ',
-      acquisitionDate: '2026-06-02T00:00:00.000Z',
-      acquisitionValue: 12500,
-      supplierId: 'supplier-1',
-    });
+    const result = await service.createResource(
+      {
+        name: ' Ordinateur portable Dell Latitude 5440 ',
+        inventoryCode: ' INV-INFO-2026-0001 ',
+        category: ' Informatique ',
+        description: ' PC portable destine aux salles informatiques ',
+        serialNumber: ' SN-DL-5440-2026-001 ',
+        acquisitionDate: '2026-06-02T00:00:00.000Z',
+        acquisitionValue: 12500,
+        supplierId: 'supplier-1',
+      },
+      'admin-1',
+    );
 
     expect(prisma.resource.findUnique).toHaveBeenCalledWith({
       where: { inventoryCode: 'INV-INFO-2026-0001' },
@@ -93,6 +110,10 @@ describe('ResourcesService', () => {
         supplierId: 'supplier-1',
       },
     });
+    expect(auditLogsService.logResourceCreated).toHaveBeenCalledWith(
+      'resource-1',
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'resource-1',
       name: 'Ordinateur portable Dell Latitude 5440',
@@ -296,9 +317,13 @@ describe('ResourcesService', () => {
       updatedAt: new Date('2026-06-03T10:00:00.000Z'),
     });
 
-    const result = await service.updateResourceStatus('resource-1', {
-      status: ResourceStatus.UNDER_MAINTENANCE,
-    });
+    const result = await service.updateResourceStatus(
+      'resource-1',
+      {
+        status: ResourceStatus.UNDER_MAINTENANCE,
+      },
+      'admin-1',
+    );
 
     expect(prisma.resource.findUnique).toHaveBeenCalledWith({
       where: { id: 'resource-1' },
@@ -319,6 +344,11 @@ describe('ResourcesService', () => {
         },
       },
     });
+    expect(auditLogsService.logResourceStatusUpdated).toHaveBeenCalledWith(
+      'resource-1',
+      ResourceStatus.UNDER_MAINTENANCE,
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'resource-1',
       name: 'Ordinateur portable Dell Latitude 5440',

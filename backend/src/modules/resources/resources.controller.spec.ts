@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { ResourceAssignmentStatus, ResourceStatus } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
 import { ResourceAssignmentHistoryResponseDto } from '../resource-assignments/dto/resource-assignment-read.dto';
 import { ResourceAssignmentsService } from '../resource-assignments/resource-assignments.service';
 import { CreateResourceDto } from './dto/create-resource.dto';
@@ -16,6 +17,14 @@ const createResourceAssignmentsServiceMock = () =>
   ({
     listResourceAssignmentsByResource: jest.fn(),
   }) as unknown as ResourceAssignmentsService;
+
+const authenticatedRequest: AuthenticatedRequest = {
+  user: {
+    userId: 'admin-1',
+    email: 'admin@grm.local',
+    roles: [UserRole.ADMIN],
+  },
+};
 
 describe('ResourcesController', () => {
   it('delegates resource creation to ResourcesService', async () => {
@@ -54,9 +63,12 @@ describe('ResourcesController', () => {
       supplierId: 'supplier-1',
     };
 
-    const result = await controller.create(createResourceDto);
+    const result = await controller.create(createResourceDto, authenticatedRequest);
 
-    expect(createResourceMock).toHaveBeenCalledWith(createResourceDto);
+    expect(createResourceMock).toHaveBeenCalledWith(
+      createResourceDto,
+      'admin-1',
+    );
     expect(result).toEqual(resourceResponse);
   });
 
@@ -229,9 +241,17 @@ describe('ResourcesController', () => {
       status: ResourceStatus.UNDER_MAINTENANCE,
     };
 
-    const result = await controller.updateStatus('resource-1', dto);
+    const result = await controller.updateStatus(
+      'resource-1',
+      dto,
+      authenticatedRequest,
+    );
 
-    expect(updateResourceStatusMock).toHaveBeenCalledWith('resource-1', dto);
+    expect(updateResourceStatusMock).toHaveBeenCalledWith(
+      'resource-1',
+      dto,
+      'admin-1',
+    );
     expect(result).toEqual(detailResponse);
   });
 
