@@ -17,6 +17,7 @@ import {
   SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateMaintenanceInterventionDto } from './dto/create-maintenance-intervention.dto';
 import { CreateMaintenanceReportDto } from './dto/create-maintenance-report.dto';
 import { CreateMaintenanceTicketDto } from './dto/create-maintenance-ticket.dto';
@@ -135,7 +136,10 @@ type SupplierReturnWithRelations = SupplierReturn & {
 
 @Injectable()
 export class MaintenanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async reportFailure(
     createMaintenanceTicketDto: CreateMaintenanceTicketDto,
@@ -188,6 +192,12 @@ export class MaintenanceService {
         where: { id: createMaintenanceTicketDto.resourceId },
         data: { status: ResourceStatus.UNDER_MAINTENANCE },
       });
+
+      await this.notificationsService.notifyMaintenanceReported(
+        tx,
+        createdTicket.id,
+        createdTicket.reportedById,
+      );
 
       return createdTicket;
     });
@@ -243,7 +253,7 @@ export class MaintenanceService {
         throw new NotFoundException('Auteur du constat introuvable.');
       }
 
-      return tx.maintenanceReport.create({
+      const createdReport = await tx.maintenanceReport.create({
         data: {
           maintenanceTicketId,
           authorId,
@@ -254,6 +264,14 @@ export class MaintenanceService {
         },
         include: maintenanceReportInclude,
       });
+
+      await this.notificationsService.notifyMaintenanceReportCreated(
+        tx,
+        createdReport.id,
+        createdReport.authorId,
+      );
+
+      return createdReport;
     });
 
     return this.toMaintenanceReportResponse(report);
@@ -341,10 +359,17 @@ export class MaintenanceService {
         data: { status: MaintenanceTicketStatus.IN_PROGRESS },
       });
 
-      return tx.maintenanceIntervention.findUniqueOrThrow({
+      const intervention = await tx.maintenanceIntervention.findUniqueOrThrow({
         where: { id: createdIntervention.id },
         include: maintenanceInterventionInclude,
       });
+
+      await this.notificationsService.notifyMaintenanceInterventionCreated(
+        tx,
+        intervention.id,
+      );
+
+      return intervention;
     });
 
     return this.toMaintenanceInterventionResponse(intervention);
@@ -444,7 +469,7 @@ export class MaintenanceService {
         );
       }
 
-      return tx.supplierReturn.create({
+      const createdSupplierReturn = await tx.supplierReturn.create({
         data: {
           maintenanceTicketId,
           resourceId: ticket.resource.id,
@@ -457,6 +482,13 @@ export class MaintenanceService {
         },
         include: supplierReturnInclude,
       });
+
+      await this.notificationsService.notifySupplierReturnCreated(
+        tx,
+        createdSupplierReturn.id,
+      );
+
+      return createdSupplierReturn;
     });
 
     return this.toSupplierReturnResponse(supplierReturn);

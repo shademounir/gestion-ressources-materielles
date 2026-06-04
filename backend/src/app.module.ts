@@ -7,6 +7,7 @@ import { DepartmentNeedsModule } from './modules/department-needs/department-nee
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { HealthModule } from './modules/health/health.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ResourceAssignmentsModule } from './modules/resource-assignments/resource-assignments.module';
 import { ResourcesModule } from './modules/resources/resources.module';
 import { SupplierOffersModule } from './modules/supplier-offers/supplier-offers.module';
@@ -23,6 +24,7 @@ import { UsersModule } from './modules/users/users.module';
     }),
     PrismaModule,
     HealthModule,
+    NotificationsModule,
     MaintenanceModule,
     AuthModule,
     UsersModule,

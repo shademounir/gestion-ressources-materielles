@@ -13,6 +13,7 @@ import {
   SupplierStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MaintenanceService } from './maintenance.service';
 
 type TransactionMock = {
@@ -49,10 +50,18 @@ type PrismaMock = {
   $transaction: jest.Mock;
 };
 
+type NotificationsServiceMock = {
+  notifyMaintenanceReported: jest.Mock;
+  notifyMaintenanceReportCreated: jest.Mock;
+  notifyMaintenanceInterventionCreated: jest.Mock;
+  notifySupplierReturnCreated: jest.Mock;
+};
+
 describe('MaintenanceService', () => {
   let service: MaintenanceService;
   let prisma: PrismaMock;
   let tx: TransactionMock;
+  let notificationsService: NotificationsServiceMock;
 
   beforeEach(() => {
     tx = {
@@ -89,7 +98,16 @@ describe('MaintenanceService', () => {
         callback(tx),
       ),
     };
-    service = new MaintenanceService(prisma as unknown as PrismaService);
+    notificationsService = {
+      notifyMaintenanceReported: jest.fn(),
+      notifyMaintenanceReportCreated: jest.fn(),
+      notifyMaintenanceInterventionCreated: jest.fn(),
+      notifySupplierReturnCreated: jest.fn(),
+    };
+    service = new MaintenanceService(
+      prisma as unknown as PrismaService,
+      notificationsService as unknown as NotificationsService,
+    );
   });
 
   it('creates a supplier return for a ticket with report and intervention', async () => {
@@ -219,6 +237,10 @@ describe('MaintenanceService', () => {
         },
       },
     });
+    expect(notificationsService.notifySupplierReturnCreated).toHaveBeenCalledWith(
+      tx,
+      'supplier-return-1',
+    );
     expect(result).toEqual({
       id: 'supplier-return-1',
       maintenanceTicketId: 'ticket-1',
@@ -560,6 +582,9 @@ describe('MaintenanceService', () => {
         },
       },
     });
+    expect(
+      notificationsService.notifyMaintenanceInterventionCreated,
+    ).toHaveBeenCalledWith(tx, 'intervention-1');
     expect(result).toEqual({
       id: 'intervention-1',
       maintenanceTicketId: 'ticket-1',
@@ -827,6 +852,9 @@ describe('MaintenanceService', () => {
         },
       },
     });
+    expect(
+      notificationsService.notifyMaintenanceReportCreated,
+    ).toHaveBeenCalledWith(tx, 'report-1', 'user-1');
     expect(result).toEqual({
       id: 'report-1',
       diagnosis: 'Carte mere defectueuse apres test de demarrage.',
@@ -1003,6 +1031,11 @@ describe('MaintenanceService', () => {
       where: { id: 'resource-1' },
       data: { status: ResourceStatus.UNDER_MAINTENANCE },
     });
+    expect(notificationsService.notifyMaintenanceReported).toHaveBeenCalledWith(
+      tx,
+      'ticket-1',
+      'user-1',
+    );
     expect(result).toEqual({
       id: 'ticket-1',
       resourceId: 'resource-1',

@@ -9,6 +9,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ResourceAssignmentsService } from './resource-assignments.service';
 
 type TransactionMock = {
@@ -39,10 +40,16 @@ type PrismaMock = {
   };
 };
 
+type NotificationsServiceMock = {
+  notifyResourceAssigned: jest.Mock;
+  notifyResourceReturned: jest.Mock;
+};
+
 describe('ResourceAssignmentsService', () => {
   let service: ResourceAssignmentsService;
   let prisma: PrismaMock;
   let tx: TransactionMock;
+  let notificationsService: NotificationsServiceMock;
 
   beforeEach(() => {
     tx = {
@@ -73,7 +80,14 @@ describe('ResourceAssignmentsService', () => {
         findUnique: jest.fn(),
       },
     };
-    service = new ResourceAssignmentsService(prisma as unknown as PrismaService);
+    notificationsService = {
+      notifyResourceAssigned: jest.fn(),
+      notifyResourceReturned: jest.fn(),
+    };
+    service = new ResourceAssignmentsService(
+      prisma as unknown as PrismaService,
+      notificationsService as unknown as NotificationsService,
+    );
   });
 
   it('lists assignment history for an existing resource', async () => {
@@ -349,6 +363,11 @@ describe('ResourceAssignmentsService', () => {
       where: { id: 'resource-1' },
       data: { status: ResourceStatus.ASSIGNED },
     });
+    expect(notificationsService.notifyResourceAssigned).toHaveBeenCalledWith(
+      tx,
+      'assignment-1',
+      'user-1',
+    );
     expect(result).toEqual({
       id: 'assignment-1',
       resourceId: 'resource-1',
@@ -422,6 +441,11 @@ describe('ResourceAssignmentsService', () => {
       where: { id: 'resource-1' },
       data: { status: ResourceStatus.AVAILABLE },
     });
+    expect(notificationsService.notifyResourceReturned).toHaveBeenCalledWith(
+      tx,
+      'assignment-1',
+      'user-1',
+    );
     expect(result).toEqual({
       id: 'assignment-1',
       resourceId: 'resource-1',

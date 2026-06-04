@@ -110,6 +110,24 @@ enum SupplierReturnStatus {
   CANCELLED
 }
 
+enum NotificationType {
+  RESOURCE_ASSIGNED
+  RESOURCE_RETURNED
+  MAINTENANCE_REPORTED
+  MAINTENANCE_REPORT_CREATED
+  MAINTENANCE_INTERVENTION_CREATED
+  SUPPLIER_RETURN_CREATED
+}
+
+enum NotificationEntityType {
+  RESOURCE
+  RESOURCE_ASSIGNMENT
+  MAINTENANCE_TICKET
+  MAINTENANCE_REPORT
+  MAINTENANCE_INTERVENTION
+  SUPPLIER_RETURN
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -148,6 +166,7 @@ model User {
   resourceAssignments        ResourceAssignment[]
   reportedMaintenanceTickets MaintenanceTicket[]  @relation("MaintenanceTicketReportedBy")
   authoredMaintenanceReports MaintenanceReport[]  @relation("MaintenanceReportAuthor")
+  notifications              Notification[]       @relation("NotificationRecipient")
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
   deletedAt                  DateTime?
@@ -384,6 +403,26 @@ model SupplierReturn {
   @@index([supplierId])
   @@index([status])
   @@index([sentAt])
+}
+
+model Notification {
+  id          String                 @id @default(uuid())
+  recipientId String?
+  recipient   User?                  @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  type        NotificationType
+  title       String
+  message     String
+  entityType  NotificationEntityType
+  entityId    String
+  readAt      DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([recipientId])
+  @@index([type])
+  @@index([entityType, entityId])
+  @@index([readAt])
+  @@index([createdAt])
 }
 
 model AuditLog {
