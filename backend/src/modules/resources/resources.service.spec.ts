@@ -377,6 +377,45 @@ describe('ResourcesService', () => {
     expect(prisma.resource.update).not.toHaveBeenCalled();
   });
 
+  it('archives an existing resource and records an audit entry', async () => {
+    prisma.resource.findUnique.mockResolvedValue({ id: 'resource-1' });
+    prisma.resource.update.mockResolvedValue({
+      id: 'resource-1',
+      name: 'Ordinateur portable Dell Latitude 5440',
+      inventoryCode: 'INV-INFO-2026-0001',
+      category: 'Informatique',
+      description: null,
+      serialNumber: null,
+      acquisitionDate: null,
+      acquisitionValue: null,
+      status: ResourceStatus.ARCHIVED,
+      supplierId: null,
+      supplier: null,
+      createdAt: new Date('2026-06-02T16:00:00.000Z'),
+      updatedAt: new Date('2026-06-03T10:00:00.000Z'),
+    });
+
+    const result = await service.updateResourceStatus(
+      'resource-1',
+      {
+        status: ResourceStatus.ARCHIVED,
+      },
+      'manager-1',
+    );
+
+    expect(prisma.resource.update).toHaveBeenCalledWith({
+      where: { id: 'resource-1' },
+      data: { status: ResourceStatus.ARCHIVED },
+      include: expect.any(Object) as object,
+    });
+    expect(auditLogsService.logResourceStatusUpdated).toHaveBeenCalledWith(
+      'resource-1',
+      ResourceStatus.ARCHIVED,
+      'manager-1',
+    );
+    expect(result.status).toBe(ResourceStatus.ARCHIVED);
+  });
+
   it('creates a resource with null optional fields when omitted', async () => {
     prisma.resource.findUnique.mockResolvedValue(null);
     prisma.resource.create.mockImplementation((args: ResourceCreateMockArgs) => ({
@@ -426,6 +465,7 @@ describe('ResourcesService', () => {
       ),
     );
     expect(prisma.resource.create).not.toHaveBeenCalled();
+    expect(auditLogsService.logResourceCreated).not.toHaveBeenCalled();
   });
 
   it('rejects creation when supplier does not exist', async () => {
@@ -441,5 +481,6 @@ describe('ResourcesService', () => {
       }),
     ).rejects.toThrow(new NotFoundException('Fournisseur introuvable.'));
     expect(prisma.resource.create).not.toHaveBeenCalled();
+    expect(auditLogsService.logResourceCreated).not.toHaveBeenCalled();
   });
 });

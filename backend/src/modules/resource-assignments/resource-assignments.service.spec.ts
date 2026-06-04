@@ -614,6 +614,28 @@ describe('ResourceAssignmentsService', () => {
     expect(tx.resource.update).not.toHaveBeenCalled();
   });
 
+  it('rejects assignment when user is logically deleted', async () => {
+    tx.resource.findUnique.mockResolvedValue({
+      id: 'resource-1',
+      status: ResourceStatus.AVAILABLE,
+    });
+    tx.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      status: UserStatus.ACTIVE,
+      deletedAt: new Date('2026-06-03T09:00:00.000Z'),
+    });
+
+    await expect(
+      service.assignResource({
+        resourceId: 'resource-1',
+        userId: 'user-1',
+      }),
+    ).rejects.toThrow(new NotFoundException('Utilisateur introuvable.'));
+    expect(tx.resourceAssignment.findFirst).not.toHaveBeenCalled();
+    expect(tx.resourceAssignment.create).not.toHaveBeenCalled();
+    expect(tx.resource.update).not.toHaveBeenCalled();
+  });
+
   it('rejects assignment when an active assignment already exists', async () => {
     tx.resource.findUnique.mockResolvedValue({
       id: 'resource-1',
@@ -638,5 +660,7 @@ describe('ResourceAssignmentsService', () => {
     );
     expect(tx.resourceAssignment.create).not.toHaveBeenCalled();
     expect(tx.resource.update).not.toHaveBeenCalled();
+    expect(notificationsService.notifyResourceAssigned).not.toHaveBeenCalled();
+    expect(auditLogsService.logResourceAssigned).not.toHaveBeenCalled();
   });
 });

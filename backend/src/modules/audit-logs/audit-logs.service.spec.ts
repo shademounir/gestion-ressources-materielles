@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { AuditAction, AuditEntityType } from '@prisma/client';
+import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AuditLogsService } from './audit-logs.service';
 
@@ -52,6 +52,24 @@ describe('AuditLogsService', () => {
     });
   });
 
+  it('persists audit entries without an actor using Prisma null JSON details', async () => {
+    await service.createAuditLog({
+      action: AuditAction.MAINTENANCE_REPORTED,
+      entityType: AuditEntityType.MAINTENANCE_TICKET,
+      entityId: 'ticket-1',
+    });
+
+    expect(client.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: null,
+        action: AuditAction.MAINTENANCE_REPORTED,
+        entityType: AuditEntityType.MAINTENANCE_TICKET,
+        entityId: 'ticket-1',
+        details: Prisma.DbNull,
+      },
+    });
+  });
+
   it('does not throw when audit persistence fails', async () => {
     const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     client.auditLog.create.mockRejectedValueOnce(new Error('database unavailable'));
@@ -100,22 +118,22 @@ describe('AuditLogsService', () => {
       | undefined;
 
     expect(firstCall?.data).toMatchObject({
-        userId: 'admin-1',
-        action: AuditAction.USER_CREATED,
-        entityType: AuditEntityType.USER,
-        entityId: 'user-created',
+      userId: 'admin-1',
+      action: AuditAction.USER_CREATED,
+      entityType: AuditEntityType.USER,
+      entityId: 'user-created',
     });
     expect(sixthCall?.data).toMatchObject({
-        userId: 'manager-1',
-        action: AuditAction.RESOURCE_ASSIGNED,
-        entityType: AuditEntityType.RESOURCE_ASSIGNMENT,
-        entityId: 'assignment-1',
+      userId: 'manager-1',
+      action: AuditAction.RESOURCE_ASSIGNED,
+      entityType: AuditEntityType.RESOURCE_ASSIGNMENT,
+      entityId: 'assignment-1',
     });
     expect(lastCall?.data).toMatchObject({
-        userId: 'manager-1',
-        action: AuditAction.SUPPLIER_RETURN_CREATED,
-        entityType: AuditEntityType.SUPPLIER_RETURN,
-        entityId: 'supplier-return-1',
+      userId: 'manager-1',
+      action: AuditAction.SUPPLIER_RETURN_CREATED,
+      entityType: AuditEntityType.SUPPLIER_RETURN,
+      entityId: 'supplier-return-1',
     });
   });
 });

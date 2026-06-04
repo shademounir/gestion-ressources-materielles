@@ -1009,6 +1009,35 @@ describe('MaintenanceService', () => {
     expect(tx.maintenanceReport.create).not.toHaveBeenCalled();
   });
 
+  it('rejects maintenance report when author is logically deleted', async () => {
+    tx.maintenanceTicket.findUnique.mockResolvedValue({
+      id: 'ticket-1',
+      status: MaintenanceTicketStatus.OPEN,
+      report: null,
+    });
+    tx.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: new Date('2026-06-03T10:00:00.000Z'),
+    });
+
+    await expect(
+      service.createMaintenanceReport(
+        'ticket-1',
+        {
+          diagnosis: 'Diagnostic technique.',
+          probableCause: 'Cause probable.',
+          severity: MaintenanceSeverity.MEDIUM,
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(new NotFoundException('Auteur du constat introuvable.'));
+    expect(tx.maintenanceReport.create).not.toHaveBeenCalled();
+    expect(
+      notificationsService.notifyMaintenanceReportCreated,
+    ).not.toHaveBeenCalled();
+    expect(auditLogsService.logMaintenanceReportCreated).not.toHaveBeenCalled();
+  });
+
   it('creates a maintenance ticket and marks the resource under maintenance in a transaction', async () => {
     tx.resource.findUnique.mockResolvedValue({
       id: 'resource-1',
@@ -1173,5 +1202,33 @@ describe('MaintenanceService', () => {
     );
     expect(tx.maintenanceTicket.create).not.toHaveBeenCalled();
     expect(tx.resource.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects failure report when reporter is logically deleted', async () => {
+    tx.resource.findUnique.mockResolvedValue({
+      id: 'resource-1',
+      status: ResourceStatus.AVAILABLE,
+    });
+    tx.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: new Date('2026-06-03T10:00:00.000Z'),
+    });
+
+    await expect(
+      service.reportFailure(
+        {
+          resourceId: 'resource-1',
+          description: 'Panne materielle.',
+          priority: MaintenancePriority.MEDIUM,
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(
+      new NotFoundException('Utilisateur declarant introuvable.'),
+    );
+    expect(tx.maintenanceTicket.create).not.toHaveBeenCalled();
+    expect(tx.resource.update).not.toHaveBeenCalled();
+    expect(notificationsService.notifyMaintenanceReported).not.toHaveBeenCalled();
+    expect(auditLogsService.logMaintenanceReported).not.toHaveBeenCalled();
   });
 });
