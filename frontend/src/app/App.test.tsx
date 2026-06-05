@@ -124,6 +124,115 @@ const createdSupplierResponse = {
   createdAt: '2026-06-05T09:00:00.000Z',
 };
 
+const departmentNeedListResponse = {
+  data: [
+    {
+      id: 'need-1',
+      title: 'Equipement salle informatique',
+      priority: 'HIGH',
+      status: 'SUBMITTED',
+      departmentId: 'department-1',
+      createdById: 'user-1',
+      createdAt: '2026-06-02T10:00:00.000Z',
+      updatedAt: '2026-06-02T10:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 50,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const tenderListResponse = {
+  data: [
+    {
+      id: 'tender-1',
+      reference: 'AO-20260602-0001',
+      title: 'Appel offres salle informatique',
+      status: 'DRAFT',
+      deadline: '2026-07-15T12:00:00.000Z',
+      publishedAt: null,
+      awardedAt: null,
+      needId: 'need-1',
+      createdById: 'user-1',
+      createdAt: '2026-06-02T12:00:00.000Z',
+      updatedAt: '2026-06-02T12:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const tenderDetailResponse = {
+  ...tenderListResponse.data[0],
+  description: 'Acquisition de postes informatiques pour la salle A12.',
+  need: {
+    id: 'need-1',
+    title: 'Equipement salle informatique',
+    priority: 'HIGH',
+    status: 'SUBMITTED',
+    departmentId: 'department-1',
+    createdById: 'user-1',
+    createdAt: '2026-06-02T10:00:00.000Z',
+  },
+  createdBy: {
+    id: 'user-1',
+    firstName: 'Demo',
+    lastName: 'Manager',
+    email: 'manager@grm.local',
+  },
+  offers: [],
+};
+
+const supplierOfferListResponse = {
+  data: [
+    {
+      id: 'offer-1',
+      tenderId: 'tender-1',
+      supplierId: 'supplier-1',
+      amount: 125000,
+      proposedDeliveryDays: 30,
+      comment: 'Livraison possible en deux lots.',
+      status: 'SUBMITTED',
+      submittedAt: '2026-06-02T14:00:00.000Z',
+      selectedAt: null,
+      createdAt: '2026-06-02T14:00:00.000Z',
+      updatedAt: '2026-06-02T14:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 20,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const createdTenderResponse = {
+  ...tenderDetailResponse,
+  id: 'tender-2',
+  reference: 'AO-20260605-0002',
+  title: 'Nouveau lot informatique',
+};
+
+const publishedTenderResponse = {
+  ...tenderDetailResponse,
+  status: 'PUBLISHED',
+  publishedAt: '2026-06-02T13:00:00.000Z',
+};
+
+const selectedSupplierOfferResponse = {
+  ...supplierOfferListResponse.data[0],
+  status: 'SELECTED',
+  selectedAt: '2026-06-02T15:00:00.000Z',
+};
+
 const emptyResourceListResponse = {
   data: [],
   meta: {
@@ -1171,6 +1280,167 @@ describe('Login page', () => {
 
     confirmSpy.mockRestore();
   });
+
+  it('manages tenders and supplier offers from the authenticated UI', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let tenderPublished = false;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.endsWith('/notifications/unread-count')) {
+        return Promise.resolve(jsonResponse({ unreadCount: 0 }));
+      }
+
+      if (url.includes('/department-needs?')) {
+        return Promise.resolve(jsonResponse(departmentNeedListResponse));
+      }
+
+      if (url.includes('/suppliers?')) {
+        return Promise.resolve(jsonResponse(supplierListResponse));
+      }
+
+      if (url.includes('/tenders?')) {
+        return Promise.resolve(jsonResponse(tenderListResponse));
+      }
+
+      if (url.endsWith('/tenders/tender-1/offers?page=1&limit=20')) {
+        return Promise.resolve(jsonResponse(supplierOfferListResponse));
+      }
+
+      if (url.endsWith('/tenders/tender-1/publish') && method === 'PATCH') {
+        tenderPublished = true;
+        return Promise.resolve(jsonResponse(publishedTenderResponse));
+      }
+
+      if (url.endsWith('/supplier-offers/offer-1/select') && method === 'PATCH') {
+        return Promise.resolve(jsonResponse(selectedSupplierOfferResponse));
+      }
+
+      if (url.endsWith('/supplier-offers') && method === 'POST') {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              ...supplierOfferListResponse.data[0],
+              id: 'offer-2',
+              amount: 99000,
+              proposedDeliveryDays: 20,
+            },
+            201,
+          ),
+        );
+      }
+
+      if (url.endsWith('/tenders') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdTenderResponse, 201));
+      }
+
+      if (url.endsWith('/tenders/tender-2')) {
+        return Promise.resolve(jsonResponse(createdTenderResponse));
+      }
+
+      if (url.endsWith('/tenders/tender-2/offers?page=1&limit=20')) {
+        return Promise.resolve(jsonResponse({ ...supplierOfferListResponse, data: [] }));
+      }
+
+      if (url.endsWith('/tenders/tender-1')) {
+        return Promise.resolve(jsonResponse(tenderPublished ? publishedTenderResponse : tenderDetailResponse));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('link', { name: /appels d'offres/i }));
+
+    expect(await screen.findByRole('heading', { name: /^appels d'offres$/i })).toBeInTheDocument();
+    expect(await screen.findByText('AO-20260602-0001')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('link', { name: /ao-20260602-0001/i }));
+
+    expect(await screen.findByText('Acquisition de postes informatiques pour la salle A12.')).toBeInTheDocument();
+    expect(await screen.findByText('Livraison possible en deux lots.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^publier$/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(
+      await screen.findByText(
+        (_content, element) =>
+          element?.getAttribute('role') === 'status' &&
+          /appel d'offres publie/i.test(element.textContent ?? ''),
+      ),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/tenders/tender-1/publish',
+      expect.objectContaining({ method: 'PATCH' }),
+    );
+
+    const createTenderRegion = screen.getByRole('region', { name: /nouvel appel d'offres/i });
+    await user.selectOptions(
+      within(createTenderRegion).getByLabelText(/besoin departemental/i),
+      'need-1',
+    );
+    await user.type(within(createTenderRegion).getByLabelText(/^titre$/i), 'Nouveau lot informatique');
+    await user.type(
+      within(createTenderRegion).getByLabelText(/^description$/i),
+      'Acquisition complementaire pour salles pedagogiques',
+    );
+    await user.type(within(createTenderRegion).getByLabelText(/deadline/i), '2026-07-20T12:00');
+    await user.click(within(createTenderRegion).getByRole('button', { name: /creer l'appel/i }));
+
+    expect(await screen.findByText(/appel d'offres cree avec succes/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/tenders',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+
+    window.history.pushState({}, '', '/tenders/tender-1');
+    await user.click(screen.getByRole('link', { name: /ao-20260602-0001/i }));
+
+    const createOfferRegion = screen.getByRole('region', { name: /nouvelle offre fournisseur/i });
+    await user.selectOptions(within(createOfferRegion).getByLabelText(/^fournisseur$/i), 'supplier-1');
+    await user.type(within(createOfferRegion).getByLabelText(/^montant$/i), '99000');
+    await user.type(within(createOfferRegion).getByLabelText(/delai livraison/i), '20');
+    await user.click(within(createOfferRegion).getByRole('button', { name: /enregistrer l'offre/i }));
+
+    expect(await screen.findByText(/offre fournisseur enregistree/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/supplier-offers',
+      expect.objectContaining({
+        body: JSON.stringify({
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 99000,
+          proposedDeliveryDays: 20,
+        }),
+        method: 'POST',
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: /selectionner/i }));
+
+    expect(await screen.findByText(/offre gagnante selectionnee/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/supplier-offers/offer-1/select',
+      expect.objectContaining({ method: 'PATCH' }),
+    );
+
+    confirmSpy.mockRestore();
+  }, 12_000);
 
   it('manages users from the admin UI', async () => {
     const user = userEvent.setup();

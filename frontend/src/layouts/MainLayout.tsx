@@ -11,7 +11,7 @@ const navigationItems = [
   { label: 'Notifications', path: '/notifications', enabled: true },
   { label: 'Administration', path: '/admin/users', enabled: true, allowedRoles: ['ADMIN'] },
   { label: 'Fournisseurs', path: '/suppliers', enabled: true, allowedRoles: ['ADMIN', 'MANAGER'] },
-  { label: "Appels d'offres", path: '/dashboard', enabled: false },
+  { label: "Appels d'offres", path: '/tenders', enabled: true, allowedRoles: ['ADMIN', 'MANAGER'] },
 ];
 
 export function MainLayout() {
