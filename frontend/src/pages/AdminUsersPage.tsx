@@ -15,6 +15,9 @@ import {
 import { useAuth } from '../modules/auth/useAuth';
 import { getApiErrorMessage } from '../services/apiClient';
 import { FeedbackMessage } from '../shared/components/FeedbackMessage';
+import { PageHeader } from '../shared/components/PageHeader';
+import { PaginationControls } from '../shared/components/PaginationControls';
+import { StatusBadge } from '../shared/components/StatusBadge';
 import { formatDate } from '../shared/utils/formatters';
 
 const USERS_PAGE_SIZE = 8;
@@ -39,6 +42,10 @@ type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']
 
 function getUserStatus(user: AdminUser): UserStatus {
   return user.isActive ? 'ACTIVE' : 'INACTIVE';
+}
+
+function getUserStatusLabel(user: AdminUser): string {
+  return user.isActive ? 'Actif' : 'Inactif';
 }
 
 function normalizeCreateUserPayload(form: UserFormState): CreateUserPayload {
@@ -220,14 +227,13 @@ export function AdminUsersPage() {
 
   return (
     <section className="resources-page" aria-labelledby="admin-users-title">
-      <div className="resource-page-header">
-        <div>
-          <span className="dashboard-eyebrow">Administration</span>
-          <h1 id="admin-users-title">Utilisateurs</h1>
-          <p>Administrez les comptes, les roles et l'etat des utilisateurs applicatifs.</p>
-        </div>
-        <span className="dashboard-status">{userCountLabel}</span>
-      </div>
+      <PageHeader
+        eyebrow="Administration"
+        title="Utilisateurs"
+        description="Administrez les comptes, les roles et l'etat des utilisateurs applicatifs."
+        status={userCountLabel}
+        titleId="admin-users-title"
+      />
 
       <FeedbackMessage errorMessage={errorMessage} successMessage={successMessage} />
 
@@ -328,9 +334,7 @@ export function AdminUsersPage() {
                           <span className="role-badge">{roleLabels[user.role]}</span>
                         </td>
                         <td>
-                          <span className={`status-badge status-${getUserStatus(user).toLowerCase()}`}>
-                            {user.isActive ? 'Actif' : 'Inactif'}
-                          </span>
+                          <StatusBadge label={getUserStatusLabel(user)} status={getUserStatus(user)} />
                         </td>
                         <td>{formatDate(user.createdAt)}</td>
                         <td>
@@ -376,25 +380,13 @@ export function AdminUsersPage() {
             </table>
           </div>
 
-          <div className="pagination-controls">
-            <button
-              type="button"
-              disabled={page <= 1 || isLoading}
-              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-            >
-              Precedent
-            </button>
-            <span>
-              Page {meta.page} / {Math.max(meta.totalPages, 1)}
-            </span>
-            <button
-              type="button"
-              disabled={page >= Math.max(meta.totalPages, 1) || isLoading}
-              onClick={() => setPage((currentPage) => currentPage + 1)}
-            >
-              Suivant
-            </button>
-          </div>
+          <PaginationControls
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            isLoading={isLoading}
+            onPrevious={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            onNext={() => setPage((currentPage) => currentPage + 1)}
+          />
         </section>
 
         <aside className="resource-side-panel">
