@@ -9,6 +9,7 @@ import { MaintenancePage } from '../pages/MaintenancePage';
 import { NotificationsPage } from '../pages/NotificationsPage';
 import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { SuppliersPage } from '../pages/SuppliersPage';
+import { TendersPage } from '../pages/TendersPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RoleProtectedRoute } from './RoleProtectedRoute';
 
@@ -43,6 +44,22 @@ export function AppRouter() {
           element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <SuppliersPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/tenders"
+          element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <TendersPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/tenders/:tenderId"
+          element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <TendersPage />
             </RoleProtectedRoute>
           }
         />
