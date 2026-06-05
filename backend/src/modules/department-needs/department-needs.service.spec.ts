@@ -11,6 +11,9 @@ type PrismaMock = {
     findUnique: jest.Mock;
   };
   need: {
+    count: jest.Mock;
+    findMany: jest.Mock;
+    findUnique: jest.Mock;
     create: jest.Mock;
   };
 };
@@ -28,11 +31,73 @@ describe('DepartmentNeedsService', () => {
         findUnique: jest.fn(),
       },
       need: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
       },
     };
 
     service = new DepartmentNeedsService(prisma as unknown as PrismaService);
+  });
+
+  it('lists department needs with filters and pagination', async () => {
+    prisma.need.count.mockResolvedValue(1);
+    prisma.need.findMany.mockResolvedValue([
+      {
+        id: 'need-1',
+        title: 'Equipement salle informatique',
+        justification: 'Renouveler le materiel de la salle informatique.',
+        priority: NeedPriority.HIGH,
+        status: NeedStatus.SUBMITTED,
+        departmentId: 'department-1',
+        createdById: 'user-1',
+        createdAt: new Date('2026-06-02T10:00:00.000Z'),
+        updatedAt: new Date('2026-06-02T10:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.listDepartmentNeeds({
+      page: 2,
+      limit: 8,
+      departmentId: 'department-1',
+      priority: NeedPriority.HIGH,
+      status: NeedStatus.SUBMITTED,
+    });
+
+    const expectedWhere = {
+      departmentId: 'department-1',
+      status: NeedStatus.SUBMITTED,
+      priority: NeedPriority.HIGH,
+    };
+
+    expect(prisma.need.count).toHaveBeenCalledWith({ where: expectedWhere });
+    expect(prisma.need.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      orderBy: { createdAt: 'desc' },
+      skip: 8,
+      take: 8,
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'need-1',
+          title: 'Equipement salle informatique',
+          priority: NeedPriority.HIGH,
+          status: NeedStatus.SUBMITTED,
+          departmentId: 'department-1',
+          createdById: 'user-1',
+          createdAt: '2026-06-02T10:00:00.000Z',
+          updatedAt: '2026-06-02T10:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 8,
+        total: 1,
+        totalPages: 1,
+      },
+    });
   });
 
   it('creates a submitted department need with multiple items', async () => {
@@ -224,5 +289,103 @@ describe('DepartmentNeedsService', () => {
       ),
     ).rejects.toThrow(new NotFoundException('Utilisateur createur introuvable.'));
     expect(prisma.need.create).not.toHaveBeenCalled();
+  });
+
+  it('returns department need detail with department, requester and items', async () => {
+    prisma.need.findUnique.mockResolvedValue({
+      id: 'need-1',
+      title: 'Equipement salle informatique',
+      justification: 'Renouveler le materiel de la salle informatique.',
+      priority: NeedPriority.HIGH,
+      status: NeedStatus.SUBMITTED,
+      departmentId: 'department-1',
+      createdById: 'user-1',
+      createdAt: new Date('2026-06-02T10:00:00.000Z'),
+      updatedAt: new Date('2026-06-02T10:00:00.000Z'),
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+      createdBy: {
+        id: 'user-1',
+        firstName: 'Demo',
+        lastName: 'Manager',
+        email: 'manager@grm.local',
+      },
+      items: [
+        {
+          id: 'item-1',
+          needId: 'need-1',
+          designation: 'PC portable',
+          description: 'Pour salle informatique',
+          quantity: 10,
+          estimatedUnitPrice: 7500,
+          createdAt: new Date('2026-06-02T10:00:00.000Z'),
+          updatedAt: new Date('2026-06-02T10:00:00.000Z'),
+        },
+      ],
+    });
+
+    const result = await service.getDepartmentNeedById('need-1');
+
+    expect(prisma.need.findUnique).toHaveBeenCalledWith({
+      where: { id: 'need-1' },
+      include: {
+        items: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'need-1',
+      title: 'Equipement salle informatique',
+      justification: 'Renouveler le materiel de la salle informatique.',
+      priority: NeedPriority.HIGH,
+      status: NeedStatus.SUBMITTED,
+      departmentId: 'department-1',
+      createdById: 'user-1',
+      items: [
+        {
+          id: 'item-1',
+          designation: 'PC portable',
+          description: 'Pour salle informatique',
+          quantity: 10,
+          estimatedUnitPrice: 7500,
+          createdAt: '2026-06-02T10:00:00.000Z',
+        },
+      ],
+      createdAt: '2026-06-02T10:00:00.000Z',
+      updatedAt: '2026-06-02T10:00:00.000Z',
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+      createdBy: {
+        id: 'user-1',
+        firstName: 'Demo',
+        lastName: 'Manager',
+        email: 'manager@grm.local',
+      },
+    });
+  });
+
+  it('rejects department need detail retrieval when need does not exist', async () => {
+    prisma.need.findUnique.mockResolvedValue(null);
+
+    await expect(service.getDepartmentNeedById('need-unknown')).rejects.toThrow(
+      new NotFoundException('Besoin introuvable.'),
+    );
   });
 });
