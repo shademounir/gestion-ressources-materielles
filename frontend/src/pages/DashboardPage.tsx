@@ -1,25 +1,40 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  getDashboardMetrics,
+  type DashboardKpi,
+} from '../modules/dashboard/dashboardService';
+import { useAuth } from '../modules/auth/useAuth';
+import { FeedbackMessage } from '../shared/components/FeedbackMessage';
+import { PageHeader } from '../shared/components/PageHeader';
 
-const dashboardKpis = [
+const initialDashboardKpis: DashboardKpi[] = [
   {
     label: 'Ressources totales',
-    value: '128',
-    trend: 'Inventaire consolide',
+    value: '-',
+    trend: 'Chargement',
   },
   {
     label: 'Ressources disponibles',
-    value: '84',
-    trend: 'Pretes a affecter',
+    value: '-',
+    trend: 'Chargement',
+  },
+  {
+    label: 'Notifications non lues',
+    value: '-',
+    trend: 'Chargement',
   },
   {
     label: 'Affectations actives',
-    value: '36',
-    trend: 'Utilisateurs equipes',
+    value: 'A connecter',
+    trend: 'Endpoint global non disponible',
+    isFallback: true,
   },
   {
     label: 'Tickets maintenance ouverts',
-    value: '8',
-    trend: 'Suivi prioritaire',
+    value: 'A connecter',
+    trend: 'Endpoint global non disponible',
+    isFallback: true,
   },
 ];
 
@@ -47,25 +62,64 @@ const operations = [
 ];
 
 export function DashboardPage() {
+  const { accessToken } = useAuth();
+  const [dashboardKpis, setDashboardKpis] = useState<DashboardKpi[]>(initialDashboardKpis);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchDashboardMetrics() {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const metrics = await getDashboardMetrics(accessToken);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setDashboardKpis(metrics.kpis);
+        setErrorMessage(
+          metrics.hasPartialError
+            ? 'Certains indicateurs dashboard sont temporairement indisponibles.'
+            : null,
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void fetchDashboardMetrics();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
   return (
     <section className="dashboard-page" aria-labelledby="dashboard-title">
-      <div className="dashboard-hero">
-        <div>
-          <span className="dashboard-eyebrow">Tableau de bord</span>
-          <h1 id="dashboard-title">Pilotage des ressources materielles</h1>
-          <p>
-            Vue d'accueil pour suivre les indicateurs principaux et acceder aux futurs modules de
-            gestion.
-          </p>
-        </div>
-        <span className="dashboard-status">Donnees demo</span>
-      </div>
+      <PageHeader
+        eyebrow="Tableau de bord"
+        title="Pilotage des ressources materielles"
+        description="Vue d'accueil pour suivre les indicateurs principaux et acceder aux modules de gestion."
+        status={isLoading ? 'Chargement' : 'Donnees API'}
+        titleId="dashboard-title"
+      />
+
+      <FeedbackMessage errorMessage={errorMessage} successMessage={null} />
 
       <div className="kpi-grid" aria-label="Indicateurs principaux">
         {dashboardKpis.map((kpi) => (
           <article className="kpi-card" key={kpi.label}>
             <span>{kpi.label}</span>
-            <strong>{kpi.value}</strong>
+            <strong className={kpi.isFallback ? 'kpi-fallback-value' : undefined}>
+              {isLoading && !kpi.isFallback ? '...' : kpi.value}
+            </strong>
             <p>{kpi.trend}</p>
           </article>
         ))}
