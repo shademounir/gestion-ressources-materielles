@@ -362,6 +362,72 @@ describe('Login page', () => {
     );
   });
 
+  it('loads dashboard KPI from available APIs with clean fallbacks', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.includes('/resources?') && url.includes('status=AVAILABLE')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: 1,
+              limit: 1,
+              total: 3,
+              totalPages: 3,
+            },
+          }),
+        );
+      }
+
+      if (url.includes('/resources?')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: 1,
+              limit: 1,
+              total: 9,
+              totalPages: 9,
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/notifications/unread-count')) {
+        return Promise.resolve(jsonResponse({ unreadCount: 2 }));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+
+    expect(
+      await screen.findByRole('heading', { name: /pilotage des ressources materielles/i }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Donnees API')).toBeInTheDocument();
+
+    const kpis = screen.getByLabelText(/indicateurs principaux/i);
+
+    expect(within(kpis).getByText('Ressources totales')).toBeInTheDocument();
+    expect(within(kpis).getByText('9')).toBeInTheDocument();
+    expect(within(kpis).getByText('Ressources disponibles')).toBeInTheDocument();
+    expect(within(kpis).getByText('3')).toBeInTheDocument();
+    expect(within(kpis).getByText('Notifications non lues')).toBeInTheDocument();
+    expect(within(kpis).getByText('2')).toBeInTheDocument();
+    expect(within(kpis).getAllByText('A connecter')).toHaveLength(2);
+  });
+
   it('keeps the authenticated session after application remount', async () => {
     window.history.pushState({}, '', '/dashboard');
     window.sessionStorage.setItem(
