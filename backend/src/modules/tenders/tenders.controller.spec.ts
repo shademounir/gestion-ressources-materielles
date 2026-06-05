@@ -1,8 +1,10 @@
 import 'reflect-metadata';
 import { UnauthorizedException } from '@nestjs/common';
-import { TenderStatus } from '@prisma/client';
+import { SupplierOfferStatus, TenderStatus } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { ListSupplierOffersQueryDto } from '../supplier-offers/dto/list-supplier-offers-query.dto';
+import { SupplierOfferListResponseDto } from '../supplier-offers/dto/supplier-offer-read-response.dto';
 import { ListTendersQueryDto } from './dto/list-tenders-query.dto';
 import { TenderDetailResponseDto } from './dto/tender-detail-response.dto';
 import { TenderListResponseDto } from './dto/tender-list-response.dto';
@@ -196,6 +198,63 @@ describe('TendersController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected getById handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
+  it('delegates tender supplier offer listing to TendersService', async () => {
+    const offerList: SupplierOfferListResponseDto = {
+      data: [
+        {
+          id: 'offer-1',
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 125000,
+          proposedDeliveryDays: 30,
+          comment: 'Livraison possible en deux lots.',
+          status: SupplierOfferStatus.SUBMITTED,
+          submittedAt: '2026-06-02T14:00:00.000Z',
+          selectedAt: null,
+          createdAt: '2026-06-02T14:00:00.000Z',
+          updatedAt: '2026-06-02T14:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 1,
+        limit: 8,
+        total: 1,
+        totalPages: 1,
+      },
+    };
+    const query: ListSupplierOffersQueryDto = {
+      page: 1,
+      limit: 8,
+      status: SupplierOfferStatus.SUBMITTED,
+    };
+    const listTenderOffersMock = jest.fn().mockResolvedValue(offerList);
+    const tendersService = {
+      listTenderOffers: listTenderOffersMock,
+    } as unknown as TendersService;
+    const controller = new TendersController(tendersService);
+
+    const result = await controller.listOffers('tender-1', query);
+
+    expect(listTenderOffersMock).toHaveBeenCalledWith('tender-1', query);
+    expect(result).toEqual(offerList);
+  });
+
+  it('requires ADMIN or MANAGER role on the tender offers endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      TendersController.prototype,
+      'listOffers',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected listOffers handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];

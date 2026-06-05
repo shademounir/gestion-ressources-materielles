@@ -7,6 +7,9 @@ import {
 import { Prisma, Tender, TenderStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ListSupplierOffersQueryDto } from '../supplier-offers/dto/list-supplier-offers-query.dto';
+import { SupplierOfferListResponseDto } from '../supplier-offers/dto/supplier-offer-read-response.dto';
+import { SupplierOffersService } from '../supplier-offers/supplier-offers.service';
 import { CreateTenderDto } from './dto/create-tender.dto';
 import { ListTendersQueryDto } from './dto/list-tenders-query.dto';
 import { TenderDetailResponseDto } from './dto/tender-detail-response.dto';
@@ -54,7 +57,10 @@ type TenderDetailRecord = Prisma.TenderGetPayload<{
 
 @Injectable()
 export class TendersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supplierOffersService: SupplierOffersService,
+  ) {}
 
   async listTenders(query: ListTendersQueryDto): Promise<TenderListResponseDto> {
     const page = query.page ?? 1;
@@ -196,6 +202,22 @@ export class TendersService {
     }
 
     return this.toTenderDetailResponse(tender);
+  }
+
+  async listTenderOffers(
+    tenderId: string,
+    query: ListSupplierOffersQueryDto,
+  ): Promise<SupplierOfferListResponseDto> {
+    const tender = await this.prisma.tender.findUnique({
+      where: { id: tenderId },
+      select: { id: true },
+    });
+
+    if (!tender) {
+      throw new NotFoundException('Appel d offres introuvable.');
+    }
+
+    return this.supplierOffersService.listSupplierOffersForTender(tenderId, query);
   }
 
   async publishTender(tenderId: string): Promise<TenderResponseDto> {

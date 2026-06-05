@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  Prisma,
   SupplierOffer,
   SupplierOfferStatus,
   SupplierStatus,
@@ -12,11 +13,68 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateSupplierOfferDto } from './dto/create-supplier-offer.dto';
+import { ListSupplierOffersQueryDto } from './dto/list-supplier-offers-query.dto';
+import {
+  SupplierOfferDetailResponseDto,
+  SupplierOfferListResponseDto,
+} from './dto/supplier-offer-read-response.dto';
 import { SupplierOfferResponseDto } from './dto/supplier-offer-response.dto';
+
+type SupplierOfferDetailRecord = Prisma.SupplierOfferGetPayload<{
+  include: {
+    tender: {
+      select: {
+        id: true;
+        reference: true;
+        title: true;
+        status: true;
+        deadline: true;
+      };
+    };
+    supplier: {
+      select: {
+        id: true;
+        name: true;
+        contactEmail: true;
+        phone: true;
+        status: true;
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class SupplierOffersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listSupplierOffers(
+    query: ListSupplierOffersQueryDto,
+  ): Promise<SupplierOfferListResponseDto> {
+    return this.listSupplierOffersByWhere({
+      page: query.page,
+      limit: query.limit,
+      where: {
+        ...(query.tenderId ? { tenderId: query.tenderId } : {}),
+        ...(query.supplierId ? { supplierId: query.supplierId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      },
+    });
+  }
+
+  async listSupplierOffersForTender(
+    tenderId: string,
+    query: ListSupplierOffersQueryDto,
+  ): Promise<SupplierOfferListResponseDto> {
+    return this.listSupplierOffersByWhere({
+      page: query.page,
+      limit: query.limit,
+      where: {
+        tenderId,
+        ...(query.supplierId ? { supplierId: query.supplierId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      },
+    });
+  }
 
   async createSupplierOffer(
     createSupplierOfferDto: CreateSupplierOfferDto,
@@ -78,6 +136,40 @@ export class SupplierOffersService {
     });
 
     return this.toSupplierOfferResponse(supplierOffer);
+  }
+
+  async getSupplierOfferById(
+    supplierOfferId: string,
+  ): Promise<SupplierOfferDetailResponseDto> {
+    const supplierOffer = await this.prisma.supplierOffer.findUnique({
+      where: { id: supplierOfferId },
+      include: {
+        tender: {
+          select: {
+            id: true,
+            reference: true,
+            title: true,
+            status: true,
+            deadline: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!supplierOffer) {
+      throw new NotFoundException('Offre fournisseur introuvable.');
+    }
+
+    return this.toSupplierOfferDetailResponse(supplierOffer);
   }
 
   async selectSupplierOffer(supplierOfferId: string): Promise<SupplierOfferResponseDto> {
@@ -155,6 +247,62 @@ export class SupplierOffersService {
     });
 
     return this.toSupplierOfferResponse(selectedOffer);
+  }
+
+  private async listSupplierOffersByWhere({
+    page,
+    limit,
+    where,
+  }: {
+    page?: number;
+    limit?: number;
+    where: Prisma.SupplierOfferWhereInput;
+  }): Promise<SupplierOfferListResponseDto> {
+    const safePage = page ?? 1;
+    const safeLimit = limit ?? 20;
+    const [total, supplierOffers] = await Promise.all([
+      this.prisma.supplierOffer.count({ where }),
+      this.prisma.supplierOffer.findMany({
+        where,
+        orderBy: { submittedAt: 'desc' },
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
+      }),
+    ]);
+
+    return {
+      data: supplierOffers.map((supplierOffer) =>
+        this.toSupplierOfferResponse(supplierOffer),
+      ),
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit),
+      },
+    };
+  }
+
+  private toSupplierOfferDetailResponse(
+    supplierOffer: SupplierOfferDetailRecord,
+  ): SupplierOfferDetailResponseDto {
+    return {
+      ...this.toSupplierOfferResponse(supplierOffer),
+      tender: {
+        id: supplierOffer.tender.id,
+        reference: supplierOffer.tender.reference,
+        title: supplierOffer.tender.title,
+        status: supplierOffer.tender.status,
+        deadline: supplierOffer.tender.deadline.toISOString(),
+      },
+      supplier: {
+        id: supplierOffer.supplier.id,
+        name: supplierOffer.supplier.name,
+        contactEmail: supplierOffer.supplier.contactEmail,
+        phone: supplierOffer.supplier.phone,
+        status: supplierOffer.supplier.status,
+      },
+    };
   }
 
   private toSupplierOfferResponse(
