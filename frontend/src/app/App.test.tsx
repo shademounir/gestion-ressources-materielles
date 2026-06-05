@@ -76,6 +76,54 @@ const createdUserResponse = {
   createdAt: '2026-06-05T09:00:00.000Z',
 };
 
+const supplierListResponse = {
+  data: [
+    {
+      id: 'supplier-1',
+      name: 'Tech Solutions Maroc',
+      contactEmail: 'contact@techsolutions.test',
+      phone: '+212 522 000 000',
+      address: 'Casablanca, Maroc',
+      status: 'ACTIVE',
+      createdAt: '2026-06-02T11:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const supplierDetailResponse = supplierListResponse.data[0];
+
+const supplierHistoryResponse = {
+  supplierIdentity: {
+    id: 'supplier-1',
+    name: 'Tech Solutions Maroc',
+    contactEmail: 'contact@techsolutions.test',
+    phone: '+212 522 000 000',
+    address: 'Casablanca, Maroc',
+  },
+  supplierStatus: 'ACTIVE',
+  supplierCreatedAt: '2026-06-02T11:00:00.000Z',
+  supplierUpdatedAt: '2026-06-02T11:30:00.000Z',
+  offersCount: 0,
+  tendersCount: 0,
+  maintenanceReturnsCount: 0,
+};
+
+const createdSupplierResponse = {
+  id: 'supplier-2',
+  name: 'Office Market',
+  contactEmail: 'office@market.test',
+  phone: '+212 522 111 111',
+  address: 'Rabat, Maroc',
+  status: 'ACTIVE',
+  createdAt: '2026-06-05T09:00:00.000Z',
+};
+
 const emptyResourceListResponse = {
   data: [],
   meta: {
@@ -1007,6 +1055,121 @@ describe('Login page', () => {
         method: 'PATCH',
       }),
     );
+  });
+
+  it('manages suppliers from the authenticated UI', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.endsWith('/notifications/unread-count')) {
+        return Promise.resolve(jsonResponse({ unreadCount: 0 }));
+      }
+
+      if (url.includes('/suppliers?')) {
+        return Promise.resolve(jsonResponse(supplierListResponse));
+      }
+
+      if (url.endsWith('/suppliers/supplier-1/history')) {
+        return Promise.resolve(jsonResponse(supplierHistoryResponse));
+      }
+
+      if (url.endsWith('/suppliers/supplier-2/history')) {
+        return Promise.resolve(
+          jsonResponse({
+            ...supplierHistoryResponse,
+            supplierIdentity: {
+              id: 'supplier-2',
+              name: 'Office Market',
+              contactEmail: 'office@market.test',
+              phone: '+212 522 111 111',
+              address: 'Rabat, Maroc',
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith('/suppliers/supplier-1/deactivate') && method === 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({
+            ...supplierDetailResponse,
+            status: 'INACTIVE',
+          }),
+        );
+      }
+
+      if (url.endsWith('/suppliers/supplier-1')) {
+        return Promise.resolve(jsonResponse(supplierDetailResponse));
+      }
+
+      if (url.endsWith('/suppliers/supplier-2')) {
+        return Promise.resolve(jsonResponse(createdSupplierResponse));
+      }
+
+      if (url.endsWith('/suppliers') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdSupplierResponse, 201));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('link', { name: /fournisseurs/i }));
+
+    expect(await screen.findByRole('heading', { name: /^fournisseurs$/i })).toBeInTheDocument();
+    expect(await screen.findByText('Tech Solutions Maroc')).toBeInTheDocument();
+    expect(screen.getByText('contact@techsolutions.test')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('link', { name: /tech solutions maroc/i }));
+
+    expect(await screen.findByText('Casablanca, Maroc')).toBeInTheDocument();
+    expect(screen.getByText(/offres disponibles/i)).toBeInTheDocument();
+
+    const createRegion = screen.getByRole('region', { name: /nouveau fournisseur/i });
+    await user.type(within(createRegion).getByLabelText(/nom fournisseur/i), 'Office Market');
+    await user.type(within(createRegion).getByLabelText(/email contact/i), ' OFFICE@Market.Test ');
+    await user.type(within(createRegion).getByLabelText(/telephone/i), '+212 522 111 111');
+    await user.type(within(createRegion).getByLabelText(/adresse/i), 'Rabat, Maroc');
+    await user.click(within(createRegion).getByRole('button', { name: /creer fournisseur/i }));
+
+    expect(await screen.findByText(/fournisseur cree avec succes/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/suppliers',
+      expect.objectContaining({
+        body: JSON.stringify({
+          name: 'Office Market',
+          contactEmail: 'office@market.test',
+          phone: '+212 522 111 111',
+          address: 'Rabat, Maroc',
+        }),
+        method: 'POST',
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: /^desactiver$/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(await screen.findByText(/fournisseur desactive/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/suppliers/supplier-1/deactivate',
+      expect.objectContaining({
+        method: 'PATCH',
+      }),
+    );
+
+    confirmSpy.mockRestore();
   });
 
   it('manages users from the admin UI', async () => {

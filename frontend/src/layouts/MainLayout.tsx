@@ -9,8 +9,8 @@ const navigationItems = [
   { label: 'Affectations', path: '/assignments', enabled: true },
   { label: 'Maintenance', path: '/maintenance', enabled: true },
   { label: 'Notifications', path: '/notifications', enabled: true },
-  { label: 'Administration', path: '/admin/users', enabled: true, adminOnly: true },
-  { label: 'Fournisseurs', path: '/dashboard', enabled: false },
+  { label: 'Administration', path: '/admin/users', enabled: true, allowedRoles: ['ADMIN'] },
+  { label: 'Fournisseurs', path: '/suppliers', enabled: true, allowedRoles: ['ADMIN', 'MANAGER'] },
   { label: "Appels d'offres", path: '/dashboard', enabled: false },
 ];
 
@@ -63,7 +63,7 @@ export function MainLayout() {
 
         <nav className="sidebar-nav" aria-label="Navigation principale">
           {navigationItems.map((item) => {
-            if (item.adminOnly && user?.role !== 'ADMIN') {
+            if (item.allowedRoles && (!user || !item.allowedRoles.includes(user.role))) {
               return null;
             }
 

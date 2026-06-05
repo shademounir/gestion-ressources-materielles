@@ -8,6 +8,7 @@ import { AssignmentsPage } from '../pages/AssignmentsPage';
 import { MaintenancePage } from '../pages/MaintenancePage';
 import { NotificationsPage } from '../pages/NotificationsPage';
 import { AdminUsersPage } from '../pages/AdminUsersPage';
+import { SuppliersPage } from '../pages/SuppliersPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RoleProtectedRoute } from './RoleProtectedRoute';
 
@@ -29,6 +30,22 @@ export function AppRouter() {
         <Route path="/assignments/:assignmentId" element={<AssignmentsPage />} />
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route
+          path="/suppliers"
+          element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <SuppliersPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers/:supplierId"
+          element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <SuppliersPage />
+            </RoleProtectedRoute>
+          }
+        />
         <Route
           path="/admin/users"
           element={
