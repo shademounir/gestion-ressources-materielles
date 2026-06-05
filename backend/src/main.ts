@@ -6,13 +6,20 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
+function parseAllowedOrigins(frontendUrl?: string): string[] {
+  return (frontendUrl ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);
 
   app.use(helmet());
   app.enableCors({
-    origin: configService.get<string>('FRONTEND_URL') ?? 'http://localhost:5173',
+    origin: parseAllowedOrigins(configService.get<string>('FRONTEND_URL')),
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');
