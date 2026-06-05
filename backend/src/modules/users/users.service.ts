@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
@@ -12,6 +12,8 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole, AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
@@ -27,6 +29,68 @@ export class UsersService {
       status: 'foundation-ready',
       note: 'User business use cases will be implemented story by story.',
     };
+  }
+
+  async listUsers(query: ListUsersQueryDto): Promise<UserListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = query.search?.trim();
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.role ? { role: { name: query.role } } : {}),
+      ...(search
+        ? {
+            OR: [
+              { email: { contains: search, mode: 'insensitive' } },
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        include: {
+          role: true,
+          department: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: users.map((user) => this.toUserResponse(user)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getUserById(id: string): Promise<UserResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        role: true,
+        department: true,
+      },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    return this.toUserResponse(user);
   }
 
   async createUser(

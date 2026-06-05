@@ -9,6 +9,7 @@ const navigationItems = [
   { label: 'Affectations', path: '/assignments', enabled: true },
   { label: 'Maintenance', path: '/maintenance', enabled: true },
   { label: 'Notifications', path: '/notifications', enabled: true },
+  { label: 'Administration', path: '/admin/users', enabled: true, adminOnly: true },
   { label: 'Fournisseurs', path: '/dashboard', enabled: false },
   { label: "Appels d'offres", path: '/dashboard', enabled: false },
 ];
@@ -61,8 +62,12 @@ export function MainLayout() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Navigation principale">
-          {navigationItems.map((item) =>
-            item.enabled ? (
+          {navigationItems.map((item) => {
+            if (item.adminOnly && user?.role !== 'ADMIN') {
+              return null;
+            }
+
+            return item.enabled ? (
               <NavLink className="sidebar-link" key={item.label} to={item.path}>
                 <span>{item.label}</span>
                 {item.path === '/notifications' && unreadCount ? (
@@ -75,8 +80,8 @@ export function MainLayout() {
               <span className="sidebar-link sidebar-link-disabled" key={item.label}>
                 {item.label}
               </span>
-            ),
-          )}
+            );
+          })}
         </nav>
       </aside>
 

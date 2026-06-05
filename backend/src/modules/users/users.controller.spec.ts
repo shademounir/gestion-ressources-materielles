@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.inte
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole } from './dto/assign-user-role.dto';
 import { CreateUserRole } from './dto/create-user.dto';
+import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
@@ -55,6 +56,94 @@ describe('UsersController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected create handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN]);
+  });
+
+  it('delegates user listing to UsersService', async () => {
+    const usersResponse: UserListResponseDto = {
+      data: [
+        {
+          id: 'user-1',
+          firstName: 'Amina',
+          lastName: 'Bennani',
+          email: 'amina.bennani@faculty.test',
+          role: UserRole.USER,
+          isActive: true,
+          createdAt: '2026-05-13T15:30:00.000Z',
+        },
+      ],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 1,
+        totalPages: 1,
+      },
+    };
+    const listUsersMock = jest.fn().mockResolvedValue(usersResponse);
+    const usersService = {
+      listUsers: listUsersMock,
+      getFoundationStatus: jest.fn(),
+    } as unknown as UsersService;
+    const controller = new UsersController(usersService);
+    const query = {
+      search: 'amina',
+      page: 1,
+      limit: 20,
+    };
+
+    const result = await controller.list(query);
+
+    expect(listUsersMock).toHaveBeenCalledWith(query);
+    expect(result).toEqual(usersResponse);
+  });
+
+  it('requires ADMIN role on the list endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(UsersController.prototype, 'list');
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected list handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN]);
+  });
+
+  it('delegates user detail retrieval to UsersService', async () => {
+    const userResponse: UserResponseDto = {
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      role: UserRole.USER,
+      isActive: true,
+      createdAt: '2026-05-13T15:30:00.000Z',
+    };
+    const getUserByIdMock = jest.fn().mockResolvedValue(userResponse);
+    const usersService = {
+      getUserById: getUserByIdMock,
+      listUsers: jest.fn(),
+      getFoundationStatus: jest.fn(),
+    } as unknown as UsersService;
+    const controller = new UsersController(usersService);
+
+    const result = await controller.getById('user-1');
+
+    expect(getUserByIdMock).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(userResponse);
+  });
+
+  it('requires ADMIN role on the detail endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(UsersController.prototype, 'getById');
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected getById handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];

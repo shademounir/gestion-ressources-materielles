@@ -1,29 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ResourceStatus } from '@prisma/client';
-import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 export enum ResourceCreatedAtSort {
   ASC = 'asc',
   DESC = 'desc',
 }
 
-export class ListResourcesQueryDto {
-  @ApiPropertyOptional({ example: 1, default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 20, default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
-
+export class ListResourcesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ example: 'Latitude' })
   @IsOptional()
   @IsString()
