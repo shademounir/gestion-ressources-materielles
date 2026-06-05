@@ -7,6 +7,7 @@ import {
   TenderStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SupplierOffersService } from '../supplier-offers/supplier-offers.service';
 import { TendersService } from './tenders.service';
 
 type PrismaMock = {
@@ -26,6 +27,9 @@ type PrismaMock = {
 describe('TendersService', () => {
   let service: TendersService;
   let prisma: PrismaMock;
+  let supplierOffersService: {
+    listSupplierOffersForTender: jest.Mock;
+  };
 
   beforeEach(() => {
     prisma = {
@@ -41,7 +45,13 @@ describe('TendersService', () => {
         update: jest.fn(),
       },
     };
-    service = new TendersService(prisma as unknown as PrismaService);
+    supplierOffersService = {
+      listSupplierOffersForTender: jest.fn(),
+    };
+    service = new TendersService(
+      prisma as unknown as PrismaService,
+      supplierOffersService as unknown as SupplierOffersService,
+    );
   });
 
   it('lists tenders with pagination, search and status filter', async () => {
@@ -453,6 +463,63 @@ describe('TendersService', () => {
     await expect(service.getTenderById('tender-unknown')).rejects.toThrow(
       new NotFoundException('Appel d offres introuvable.'),
     );
+  });
+
+  it('lists supplier offers for an existing tender', async () => {
+    const offerList = {
+      data: [
+        {
+          id: 'offer-1',
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 125000,
+          proposedDeliveryDays: 30,
+          comment: 'Livraison possible en deux lots.',
+          status: SupplierOfferStatus.SUBMITTED,
+          submittedAt: '2026-06-02T14:00:00.000Z',
+          selectedAt: null,
+          createdAt: '2026-06-02T14:00:00.000Z',
+          updatedAt: '2026-06-02T14:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 1,
+        limit: 8,
+        total: 1,
+        totalPages: 1,
+      },
+    };
+    const query = {
+      page: 1,
+      limit: 8,
+      status: SupplierOfferStatus.SUBMITTED,
+    };
+    prisma.tender.findUnique.mockResolvedValue({ id: 'tender-1' });
+    supplierOffersService.listSupplierOffersForTender.mockResolvedValue(offerList);
+
+    const result = await service.listTenderOffers('tender-1', query);
+
+    expect(prisma.tender.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tender-1' },
+      select: { id: true },
+    });
+    expect(supplierOffersService.listSupplierOffersForTender).toHaveBeenCalledWith(
+      'tender-1',
+      query,
+    );
+    expect(result).toEqual(offerList);
+  });
+
+  it('rejects supplier offer listing when tender does not exist', async () => {
+    prisma.tender.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.listTenderOffers('tender-unknown', {
+        page: 1,
+        limit: 8,
+      }),
+    ).rejects.toThrow(new NotFoundException('Appel d offres introuvable.'));
+    expect(supplierOffersService.listSupplierOffersForTender).not.toHaveBeenCalled();
   });
 
   it('publishes a draft tender with a future deadline', async () => {

@@ -17,7 +17,9 @@ type PrismaMock = {
     findUnique: jest.Mock;
   };
   supplierOffer: {
+    count: jest.Mock;
     findFirst: jest.Mock;
+    findMany: jest.Mock;
     findUnique: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -42,7 +44,9 @@ describe('SupplierOffersService', () => {
         findUnique: jest.fn(),
       },
       supplierOffer: {
+        count: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -50,6 +54,109 @@ describe('SupplierOffersService', () => {
       },
     };
     service = new SupplierOffersService(prisma as unknown as PrismaService);
+  });
+
+  it('lists supplier offers with pagination and filters', async () => {
+    prisma.supplierOffer.count.mockResolvedValue(1);
+    prisma.supplierOffer.findMany.mockResolvedValue([
+      {
+        id: 'offer-1',
+        tenderId: 'tender-1',
+        supplierId: 'supplier-1',
+        amount: 125000,
+        proposedDeliveryDays: 30,
+        comment: 'Livraison possible en deux lots.',
+        status: SupplierOfferStatus.SUBMITTED,
+        submittedAt: new Date('2026-06-02T14:00:00.000Z'),
+        selectedAt: null,
+        createdAt: new Date('2026-06-02T14:00:00.000Z'),
+        updatedAt: new Date('2026-06-02T14:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.listSupplierOffers({
+      page: 2,
+      limit: 8,
+      tenderId: 'tender-1',
+      supplierId: 'supplier-1',
+      status: SupplierOfferStatus.SUBMITTED,
+    });
+
+    const expectedWhere = {
+      tenderId: 'tender-1',
+      supplierId: 'supplier-1',
+      status: SupplierOfferStatus.SUBMITTED,
+    };
+
+    expect(prisma.supplierOffer.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+    expect(prisma.supplierOffer.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      orderBy: { submittedAt: 'desc' },
+      skip: 8,
+      take: 8,
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'offer-1',
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 125000,
+          proposedDeliveryDays: 30,
+          comment: 'Livraison possible en deux lots.',
+          status: SupplierOfferStatus.SUBMITTED,
+          submittedAt: '2026-06-02T14:00:00.000Z',
+          selectedAt: null,
+          createdAt: '2026-06-02T14:00:00.000Z',
+          updatedAt: '2026-06-02T14:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 8,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+  });
+
+  it('lists supplier offers for a tender with scoped filters', async () => {
+    prisma.supplierOffer.count.mockResolvedValue(0);
+    prisma.supplierOffer.findMany.mockResolvedValue([]);
+
+    const result = await service.listSupplierOffersForTender('tender-1', {
+      page: 1,
+      limit: 8,
+      supplierId: 'supplier-1',
+      status: SupplierOfferStatus.SELECTED,
+    });
+
+    const expectedWhere = {
+      tenderId: 'tender-1',
+      supplierId: 'supplier-1',
+      status: SupplierOfferStatus.SELECTED,
+    };
+
+    expect(prisma.supplierOffer.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+    expect(prisma.supplierOffer.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      orderBy: { submittedAt: 'desc' },
+      skip: 0,
+      take: 8,
+    });
+    expect(result).toEqual({
+      data: [],
+      meta: {
+        page: 1,
+        limit: 8,
+        total: 0,
+        totalPages: 0,
+      },
+    });
   });
 
   it('creates a submitted supplier offer for a published tender and active supplier', async () => {
@@ -302,6 +409,97 @@ describe('SupplierOffersService', () => {
       ),
     );
     expect(prisma.supplierOffer.create).not.toHaveBeenCalled();
+  });
+
+  it('returns supplier offer detail with tender and supplier', async () => {
+    prisma.supplierOffer.findUnique.mockResolvedValue({
+      id: 'offer-1',
+      tenderId: 'tender-1',
+      supplierId: 'supplier-1',
+      amount: 125000,
+      proposedDeliveryDays: 30,
+      comment: 'Livraison possible en deux lots.',
+      status: SupplierOfferStatus.SUBMITTED,
+      submittedAt: new Date('2026-06-02T14:00:00.000Z'),
+      selectedAt: null,
+      createdAt: new Date('2026-06-02T14:00:00.000Z'),
+      updatedAt: new Date('2026-06-02T14:00:00.000Z'),
+      tender: {
+        id: 'tender-1',
+        reference: 'AO-20260602-0001',
+        title: 'Appel d offres - Equipement salle informatique',
+        status: TenderStatus.PUBLISHED,
+        deadline: new Date('2026-07-15T12:00:00.000Z'),
+      },
+      supplier: {
+        id: 'supplier-1',
+        name: 'Tech Solutions Maroc',
+        contactEmail: 'contact@techsolutions.test',
+        phone: '+212 522 000 000',
+        status: SupplierStatus.ACTIVE,
+      },
+    });
+
+    const result = await service.getSupplierOfferById('offer-1');
+
+    expect(prisma.supplierOffer.findUnique).toHaveBeenCalledWith({
+      where: { id: 'offer-1' },
+      include: {
+        tender: {
+          select: {
+            id: true,
+            reference: true,
+            title: true,
+            status: true,
+            deadline: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'offer-1',
+      tenderId: 'tender-1',
+      supplierId: 'supplier-1',
+      amount: 125000,
+      proposedDeliveryDays: 30,
+      comment: 'Livraison possible en deux lots.',
+      status: SupplierOfferStatus.SUBMITTED,
+      submittedAt: '2026-06-02T14:00:00.000Z',
+      selectedAt: null,
+      createdAt: '2026-06-02T14:00:00.000Z',
+      updatedAt: '2026-06-02T14:00:00.000Z',
+      tender: {
+        id: 'tender-1',
+        reference: 'AO-20260602-0001',
+        title: 'Appel d offres - Equipement salle informatique',
+        status: TenderStatus.PUBLISHED,
+        deadline: '2026-07-15T12:00:00.000Z',
+      },
+      supplier: {
+        id: 'supplier-1',
+        name: 'Tech Solutions Maroc',
+        contactEmail: 'contact@techsolutions.test',
+        phone: '+212 522 000 000',
+        status: SupplierStatus.ACTIVE,
+      },
+    });
+  });
+
+  it('rejects supplier offer detail retrieval when offer does not exist', async () => {
+    prisma.supplierOffer.findUnique.mockResolvedValue(null);
+
+    await expect(service.getSupplierOfferById('offer-unknown')).rejects.toThrow(
+      new NotFoundException('Offre fournisseur introuvable.'),
+    );
   });
 
   it('selects a supplier offer, rejects competing offers and awards the tender atomically', async () => {

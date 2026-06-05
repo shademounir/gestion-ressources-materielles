@@ -1,4 +1,14 @@
-import { Body, Controller, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -17,6 +27,11 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { CreateSupplierOfferDto } from './dto/create-supplier-offer.dto';
+import { ListSupplierOffersQueryDto } from './dto/list-supplier-offers-query.dto';
+import {
+  SupplierOfferDetailResponseDto,
+  SupplierOfferListResponseDto,
+} from './dto/supplier-offer-read-response.dto';
 import { SupplierOfferResponseDto } from './dto/supplier-offer-response.dto';
 import { SupplierOffersService } from './supplier-offers.service';
 
@@ -24,6 +39,20 @@ import { SupplierOffersService } from './supplier-offers.service';
 @Controller('supplier-offers')
 export class SupplierOffersController {
   constructor(private readonly supplierOffersService: SupplierOffersService) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lister les offres fournisseurs' })
+  @ApiOkResponse({ type: SupplierOfferListResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour lister les offres' })
+  list(
+    @Query() query: ListSupplierOffersQueryDto,
+  ): Promise<SupplierOfferListResponseDto> {
+    return this.supplierOffersService.listSupplierOffers(query);
+  }
 
   @Post()
   @ApiBearerAuth()
@@ -42,6 +71,22 @@ export class SupplierOffersController {
     @Body() createSupplierOfferDto: CreateSupplierOfferDto,
   ): Promise<SupplierOfferResponseDto> {
     return this.supplierOffersService.createSupplierOffer(createSupplierOfferDto);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Consulter le detail d'une offre fournisseur" })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'offre fournisseur" })
+  @ApiOkResponse({ type: SupplierOfferDetailResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour consulter une offre' })
+  @ApiNotFoundResponse({ description: 'Offre fournisseur introuvable' })
+  getById(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) supplierOfferId: string,
+  ): Promise<SupplierOfferDetailResponseDto> {
+    return this.supplierOffersService.getSupplierOfferById(supplierOfferId);
   }
 
   @Patch(':id/select')
