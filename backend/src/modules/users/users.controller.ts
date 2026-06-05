@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -30,6 +31,8 @@ import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.inte
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
@@ -41,6 +44,34 @@ export class UsersController {
   @Get('foundation')
   foundation() {
     return this.usersService.getFoundationStatus();
+  }
+
+  @Get()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lister les utilisateurs pour administration' })
+  @ApiOkResponse({ type: UserListResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour lister les utilisateurs' })
+  list(@Query() query: ListUsersQueryDto): Promise<UserListResponseDto> {
+    return this.usersService.listUsers(query);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Consulter le detail utilisateur' })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID de l utilisateur' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour consulter un utilisateur' })
+  @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
+  getById(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ): Promise<UserResponseDto> {
+    return this.usersService.getUserById(id);
   }
 
   @Post()

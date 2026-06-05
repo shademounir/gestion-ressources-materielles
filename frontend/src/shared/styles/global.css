@@ -545,6 +545,11 @@ button:focus-visible {
   padding: 0.45rem 0.65rem;
 }
 
+.danger-action {
+  border-color: #fecdca;
+  color: var(--color-danger);
+}
+
 .secondary-link-action {
   align-items: center;
   border: 1px solid var(--color-border);
@@ -589,8 +594,35 @@ button:focus-visible {
   text-decoration: none;
 }
 
-.resource-table a:hover {
+.resource-table a:hover,
+.table-link-button:hover {
   color: var(--color-secondary);
+}
+
+.table-link-button {
+  background: transparent;
+  border: 0;
+  color: var(--color-primary);
+  font-weight: 800;
+  min-height: auto;
+  padding: 0;
+  text-align: left;
+}
+
+.table-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.table-actions select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: var(--color-primary);
+  font: inherit;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.65rem;
 }
 
 .status-badge {
@@ -630,6 +662,22 @@ button:focus-visible {
 .status-active {
   background: #ecfdf3;
   color: #067647;
+}
+
+.status-inactive {
+  background: #f2f4f7;
+  color: #475467;
+}
+
+.role-badge {
+  background: rgba(35, 178, 164, 0.12);
+  border-radius: 999px;
+  color: #14796f;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.45rem 0.65rem;
 }
 
 .status-returned {
@@ -703,6 +751,20 @@ button:focus-visible {
   display: grid;
   gap: 0.85rem;
   margin-top: 1rem;
+}
+
+.checkbox-field {
+  align-items: center;
+  color: var(--color-primary);
+  display: flex;
+  font-weight: 700;
+  gap: 0.55rem;
+}
+
+.checkbox-field input {
+  accent-color: var(--color-secondary);
+  height: 1rem;
+  width: 1rem;
 }
 
 .notification-toolbar {

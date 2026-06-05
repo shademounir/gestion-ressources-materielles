@@ -36,6 +36,46 @@ const resourceListResponse = {
   },
 };
 
+const userListResponse = {
+  data: [
+    {
+      id: 'managed-user-1',
+      firstName: 'Demo',
+      lastName: 'Manager',
+      email: 'manager@grm.local',
+      role: 'MANAGER',
+      isActive: true,
+      department: null,
+      createdAt: '2026-06-01T10:00:00.000Z',
+    },
+  ],
+  meta: {
+    page: 1,
+    limit: 8,
+    total: 1,
+    totalPages: 1,
+  },
+};
+
+const managedUserDetailResponse = {
+  ...userListResponse.data[0],
+  department: {
+    id: 'department-1',
+    name: 'Informatique',
+  },
+};
+
+const createdUserResponse = {
+  id: 'managed-user-2',
+  firstName: 'Nadia',
+  lastName: 'Saidi',
+  email: 'nadia.saidi@grm.local',
+  role: 'USER',
+  isActive: true,
+  department: null,
+  createdAt: '2026-06-05T09:00:00.000Z',
+};
+
 const emptyResourceListResponse = {
   data: [],
   meta: {
@@ -901,5 +941,123 @@ describe('Login page', () => {
         method: 'PATCH',
       }),
     );
+  });
+
+  it('manages users from the admin UI', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/login')) {
+        return Promise.resolve(jsonResponse(loginResponse));
+      }
+
+      if (url.endsWith('/notifications/unread-count')) {
+        return Promise.resolve(jsonResponse({ unreadCount: 0 }));
+      }
+
+      if (url.includes('/users?')) {
+        return Promise.resolve(jsonResponse(userListResponse));
+      }
+
+      if (url.endsWith('/users/managed-user-1/role') && method === 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({
+            ...userListResponse.data[0],
+            role: 'USER',
+          }),
+        );
+      }
+
+      if (url.endsWith('/users/managed-user-1/deactivate') && method === 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({
+            ...userListResponse.data[0],
+            isActive: false,
+          }),
+        );
+      }
+
+      if (url.endsWith('/users/managed-user-1')) {
+        return Promise.resolve(jsonResponse(managedUserDetailResponse));
+      }
+
+      if (url.endsWith('/users') && method === 'POST') {
+        return Promise.resolve(jsonResponse(createdUserResponse, 201));
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/email/i), 'admin@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'SecurePassword123!');
+    await user.click(screen.getByRole('button', { name: /se connecter/i }));
+    await screen.findByRole('heading', { name: /pilotage des ressources materielles/i });
+
+    await user.click(screen.getByRole('link', { name: /administration/i }));
+
+    expect(await screen.findByRole('heading', { name: /^utilisateurs$/i })).toBeInTheDocument();
+    expect(await screen.findByText('manager@grm.local')).toBeInTheDocument();
+    expect(screen.getByText(/1 utilisateur/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /demo manager/i }));
+
+    expect(await screen.findByText('Informatique')).toBeInTheDocument();
+
+    const createRegion = screen.getByRole('region', { name: /nouvel utilisateur/i });
+    await user.type(within(createRegion).getByLabelText(/prenom/i), 'Nadia');
+    await user.type(within(createRegion).getByLabelText(/^nom$/i), 'Saidi');
+    await user.type(within(createRegion).getByLabelText(/^email$/i), 'Nadia.Saidi@GRM.local');
+    await user.type(
+      within(createRegion).getByLabelText(/mot de passe initial/i),
+      'ChangeMe123!',
+    );
+    await user.selectOptions(within(createRegion).getByLabelText(/role initial/i), 'USER');
+    await user.click(within(createRegion).getByRole('button', { name: /creer utilisateur/i }));
+
+    expect(await screen.findByText(/utilisateur cree avec succes/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/users',
+      expect.objectContaining({
+        body: JSON.stringify({
+          firstName: 'Nadia',
+          lastName: 'Saidi',
+          email: 'nadia.saidi@grm.local',
+          password: 'ChangeMe123!',
+          role: 'USER',
+          isActive: true,
+        }),
+        method: 'POST',
+      }),
+    );
+
+    await user.selectOptions(screen.getByLabelText(/role de manager@grm.local/i), 'USER');
+    await user.click(screen.getByRole('button', { name: /appliquer/i }));
+
+    expect(await screen.findByText(/role utilisateur mis a jour/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/users/managed-user-1/role',
+      expect.objectContaining({
+        body: JSON.stringify({ role: 'USER' }),
+        method: 'PATCH',
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: /desactiver/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(await screen.findByText(/utilisateur desactive/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/users/managed-user-1/deactivate',
+      expect.objectContaining({
+        method: 'PATCH',
+      }),
+    );
+
+    confirmSpy.mockRestore();
   });
 });
