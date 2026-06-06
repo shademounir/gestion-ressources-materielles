@@ -101,7 +101,7 @@ describe('UsersController', () => {
     expect(result).toEqual(usersResponse);
   });
 
-  it('requires ADMIN role on the list endpoint', () => {
+  it('requires ADMIN or MANAGER role on the list endpoint', () => {
     const descriptor = Object.getOwnPropertyDescriptor(UsersController.prototype, 'list');
     const handler: unknown = descriptor?.value;
 
@@ -111,7 +111,7 @@ describe('UsersController', () => {
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
 
-    expect(metadata).toEqual([UserRole.ADMIN]);
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
   });
 
   it('delegates user detail retrieval to UsersService', async () => {

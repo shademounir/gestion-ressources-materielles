@@ -99,6 +99,7 @@ export function TendersPage() {
   const [offerForm, setOfferForm] = useState<OfferFormState>(emptyOfferForm);
   const [isListLoading, setIsListLoading] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isReferenceLoading, setIsReferenceLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -135,6 +136,8 @@ export function TendersPage() {
   }, [accessToken, page, search, statusFilter]);
 
   const fetchReferenceData = useCallback(async () => {
+    setIsReferenceLoading(true);
+
     try {
       const [needsResponse, suppliersResponse] = await Promise.all([
         listDepartmentNeeds({ page: 1, limit: 50, status: 'SUBMITTED' }, accessToken),
@@ -145,6 +148,8 @@ export function TendersPage() {
     } catch {
       setNeeds([]);
       setSuppliers([]);
+    } finally {
+      setIsReferenceLoading(false);
     }
   }, [accessToken]);
 
@@ -535,7 +540,11 @@ export function TendersPage() {
           <section className="resource-create-panel" aria-labelledby="tender-create-title">
             <div className="section-heading">
               <h2 id="tender-create-title">Nouvel appel d'offres</h2>
-              <p>Selectionnez un besoin departemental disponible.</p>
+              <p>
+                Un appel d'offres se cree a partir d'un besoin departemental soumis. Si la
+                liste est vide, executez le seed de demonstration ou creez d'abord un besoin
+                materiel.
+              </p>
             </div>
 
             <form className="resource-create-form" onSubmit={(event) => void handleCreateTender(event)}>
@@ -545,9 +554,12 @@ export function TendersPage() {
                   id="tender-need"
                   value={tenderForm.needId}
                   onChange={(event) => updateTenderFormField('needId', event.target.value)}
+                  disabled={isReferenceLoading || needs.length === 0}
                   required
                 >
-                  <option value="">Selectionner</option>
+                  <option value="">
+                    {isReferenceLoading ? 'Chargement des besoins...' : 'Selectionner un besoin'}
+                  </option>
                   {needs.map((need) => (
                     <option key={need.id} value={need.id}>
                       {need.title}
@@ -555,6 +567,11 @@ export function TendersPage() {
                   ))}
                 </select>
               </label>
+              {!isReferenceLoading && needs.length === 0 ? (
+                <p className="muted-copy">
+                  Aucun besoin departemental disponible. Creez d'abord un besoin materiel.
+                </p>
+              ) : null}
 
               <label className="form-field" htmlFor="tender-reference">
                 <span>Reference optionnelle</span>
@@ -597,7 +614,11 @@ export function TendersPage() {
                 />
               </label>
 
-              <button className="primary-action" type="submit" disabled={isSaving}>
+              <button
+                className="primary-action"
+                type="submit"
+                disabled={isSaving || needs.length === 0}
+              >
                 {isSaving ? 'Enregistrement...' : "Creer l'appel d'offres"}
               </button>
             </form>

@@ -221,6 +221,24 @@ describe('MaintenanceController', () => {
     expect(result).toEqual(response);
   });
 
+  it('delegates open ticket count retrieval to MaintenanceService', async () => {
+    const response = { count: 2 };
+    const countOpenTicketsMock = jest.fn().mockResolvedValue(response);
+    const service = {
+      countOpenTickets: countOpenTicketsMock,
+      reportFailure: jest.fn(),
+      createMaintenanceIntervention: jest.fn(),
+      createMaintenanceReport: jest.fn(),
+      createSupplierReturn: jest.fn(),
+    } as unknown as MaintenanceService;
+    const controller = new MaintenanceController(service);
+
+    const result = await controller.getOpenCount();
+
+    expect(countOpenTicketsMock).toHaveBeenCalledWith();
+    expect(result).toEqual(response);
+  });
+
   it('requires ADMIN or MANAGER role on the create endpoint', () => {
     const descriptor = Object.getOwnPropertyDescriptor(
       MaintenanceController.prototype,
@@ -278,6 +296,22 @@ describe('MaintenanceController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected createSupplierReturn handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
+  it('requires ADMIN or MANAGER role on the open count endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      MaintenanceController.prototype,
+      'getOpenCount',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected getOpenCount handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];

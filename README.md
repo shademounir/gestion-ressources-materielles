@@ -55,6 +55,27 @@ Manager
 - Email : [manager@grm.local](mailto:manager@grm.local)
 - Mot de passe : `Manager123!`
 
+## Donnees de demonstration et recette
+
+Les donnees de demonstration sont generees automatiquement par le seed Prisma et peuvent etre reexecutees sans creer de doublons :
+
+```bash
+npm run prisma:seed --workspace backend
+```
+
+Comptes principaux :
+
+- Administrateur : `admin@grm.local` / `Admin123!`
+- Manager : `manager@grm.local` / `Manager123!`
+
+Comptes metier crees si absents :
+
+- `technicien@grm.local` / `Technicien123!`
+- `employe1@grm.local` / `Employe123!`
+- `employe2@grm.local` / `Employe123!`
+
+Le seed prepare aussi un jeu de donnees minimal pour la soutenance : departement, besoins departementaux, ressources, fournisseurs, affectations, tickets de maintenance, notifications, appels d'offres et offres fournisseurs.
+
 ## Objectifs pedagogiques
 
 - Formaliser un besoin metier realiste avant le developpement.

@@ -322,7 +322,7 @@ const assignmentDetailResponse = {
 const createdAssignmentResponse = {
   id: 'assignment-2',
   resourceId: 'resource-1',
-  userId: 'assigned-user-2',
+  userId: 'managed-user-1',
   assignedAt: '2026-06-04T09:00:00.000Z',
   returnedAt: null,
   status: 'ACTIVE',
@@ -337,10 +337,10 @@ const createdAssignmentDetailResponse = {
   id: 'assignment-2',
   comment: 'Nouvelle affectation',
   user: {
-    id: 'assigned-user-2',
-    firstName: 'System',
-    lastName: 'Administrator',
-    email: 'admin@grm.local',
+    id: 'managed-user-1',
+    firstName: 'Demo',
+    lastName: 'Manager',
+    email: 'manager@grm.local',
   },
 };
 
@@ -560,6 +560,14 @@ describe('Login page', () => {
         return Promise.resolve(jsonResponse({ unreadCount: 2 }));
       }
 
+      if (url.endsWith('/resource-assignments/active-count')) {
+        return Promise.resolve(jsonResponse({ count: 4 }));
+      }
+
+      if (url.endsWith('/maintenance-tickets/open-count')) {
+        return Promise.resolve(jsonResponse({ count: 2 }));
+      }
+
       return Promise.resolve(new Response(null, { status: 404 }));
     });
 
@@ -581,8 +589,10 @@ describe('Login page', () => {
     expect(within(kpis).getByText('Ressources disponibles')).toBeInTheDocument();
     expect(within(kpis).getByText('3')).toBeInTheDocument();
     expect(within(kpis).getByText('Notifications non lues')).toBeInTheDocument();
-    expect(within(kpis).getByText('2')).toBeInTheDocument();
-    expect(within(kpis).getAllByText('A connecter')).toHaveLength(2);
+    expect(within(kpis).getByText('Affectations actives')).toBeInTheDocument();
+    expect(within(kpis).getByText('4')).toBeInTheDocument();
+    expect(within(kpis).getByText('Tickets maintenance ouverts')).toBeInTheDocument();
+    expect(within(kpis).getAllByText('2')).toHaveLength(2);
   });
 
   it('keeps the authenticated session after application remount', async () => {
@@ -676,6 +686,10 @@ describe('Login page', () => {
 
       if (url.includes('/resources?')) {
         return Promise.resolve(jsonResponse(resourceListResponse));
+      }
+
+      if (url.includes('/users?')) {
+        return Promise.resolve(jsonResponse(userListResponse));
       }
 
       if (url.endsWith('/resources/resource-1/status') && method === 'PATCH') {
@@ -890,6 +904,10 @@ describe('Login page', () => {
         return Promise.resolve(jsonResponse(resourceListResponse));
       }
 
+      if (url.includes('/users?')) {
+        return Promise.resolve(jsonResponse(userListResponse));
+      }
+
       if (url.includes('/resources/resource-1/assignments?')) {
         return Promise.resolve(jsonResponse(assignmentHistoryResponse));
       }
@@ -951,7 +969,8 @@ describe('Login page', () => {
       }),
     );
 
-    await user.type(screen.getByLabelText(/utilisateur id/i), 'assigned-user-2');
+    await screen.findByRole('option', { name: /demo manager - manager@grm.local - manager/i });
+    await user.selectOptions(screen.getByLabelText(/^utilisateur$/i), 'managed-user-1');
     await user.type(screen.getByLabelText(/^commentaire$/i), 'Nouvelle affectation');
     await user.click(screen.getByRole('button', { name: /affecter la ressource/i }));
 
@@ -961,7 +980,7 @@ describe('Login page', () => {
       expect.objectContaining({
         body: JSON.stringify({
           resourceId: 'resource-1',
-          userId: 'assigned-user-2',
+          userId: 'managed-user-1',
           comment: 'Nouvelle affectation',
         }),
         method: 'POST',

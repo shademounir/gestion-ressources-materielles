@@ -48,7 +48,7 @@ export class UsersController {
 
   @Get()
   @ApiBearerAuth()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Lister les utilisateurs pour administration' })
   @ApiOkResponse({ type: UserListResponseDto })

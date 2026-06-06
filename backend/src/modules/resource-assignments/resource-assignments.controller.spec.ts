@@ -33,6 +33,7 @@ describe('ResourceAssignmentsController', () => {
     };
     const assignResourceMock = jest.fn().mockResolvedValue(assignmentResponse);
     const resourceAssignmentsService = {
+      countActiveAssignments: jest.fn(),
       assignResource: assignResourceMock,
       returnResource: jest.fn(),
       getAssignmentById: jest.fn(),
@@ -67,6 +68,7 @@ describe('ResourceAssignmentsController', () => {
     };
     const returnResourceMock = jest.fn().mockResolvedValue(assignmentResponse);
     const resourceAssignmentsService = {
+      countActiveAssignments: jest.fn(),
       assignResource: jest.fn(),
       returnResource: returnResourceMock,
       getAssignmentById: jest.fn(),
@@ -118,6 +120,7 @@ describe('ResourceAssignmentsController', () => {
     };
     const getAssignmentByIdMock = jest.fn().mockResolvedValue(detailResponse);
     const resourceAssignmentsService = {
+      countActiveAssignments: jest.fn(),
       assignResource: jest.fn(),
       returnResource: jest.fn(),
       getAssignmentById: getAssignmentByIdMock,
@@ -130,6 +133,25 @@ describe('ResourceAssignmentsController', () => {
 
     expect(getAssignmentByIdMock).toHaveBeenCalledWith('assignment-1');
     expect(result).toEqual(detailResponse);
+  });
+
+  it('delegates active assignment count retrieval to ResourceAssignmentsService', async () => {
+    const response = { count: 2 };
+    const countActiveAssignmentsMock = jest.fn().mockResolvedValue(response);
+    const resourceAssignmentsService = {
+      countActiveAssignments: countActiveAssignmentsMock,
+      assignResource: jest.fn(),
+      returnResource: jest.fn(),
+      getAssignmentById: jest.fn(),
+    } as unknown as ResourceAssignmentsService;
+    const controller = new ResourceAssignmentsController(
+      resourceAssignmentsService,
+    );
+
+    const result = await controller.getActiveCount();
+
+    expect(countActiveAssignmentsMock).toHaveBeenCalledWith();
+    expect(result).toEqual(response);
   });
 
   it('allows ADMIN and MANAGER roles on the create endpoint', () => {
@@ -173,6 +195,22 @@ describe('ResourceAssignmentsController', () => {
 
     if (typeof handler !== 'function') {
       throw new Error('Expected findOne handler to be a function');
+    }
+
+    const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+
+    expect(metadata).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
+  });
+
+  it('allows ADMIN and MANAGER roles on the active count endpoint', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      ResourceAssignmentsController.prototype,
+      'getActiveCount',
+    );
+    const handler: unknown = descriptor?.value;
+
+    if (typeof handler !== 'function') {
+      throw new Error('Expected getActiveCount handler to be a function');
     }
 
     const metadata = Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];

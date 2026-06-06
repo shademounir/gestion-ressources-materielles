@@ -68,6 +68,18 @@ export interface AssignmentDetail {
   };
 }
 
+export interface CountResponse {
+  count: number;
+}
+
+export function getActiveAssignmentCount(
+  accessToken: string | null,
+): Promise<CountResponse> {
+  return apiClient<CountResponse>('/resource-assignments/active-count', {
+    accessToken,
+  });
+}
+
 export function createAssignment(
   payload: CreateAssignmentPayload,
   accessToken: string | null,

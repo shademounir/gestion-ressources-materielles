@@ -26,15 +26,13 @@ const initialDashboardKpis: DashboardKpi[] = [
   },
   {
     label: 'Affectations actives',
-    value: 'A connecter',
-    trend: 'Endpoint global non disponible',
-    isFallback: true,
+    value: '-',
+    trend: 'Chargement',
   },
   {
     label: 'Tickets maintenance ouverts',
-    value: 'A connecter',
-    trend: 'Endpoint global non disponible',
-    isFallback: true,
+    value: '-',
+    trend: 'Chargement',
   },
 ];
 
@@ -56,8 +54,8 @@ const operations = [
   },
   {
     label: "Fournisseurs et appels d'offres",
-    status: 'Pret a connecter',
-    path: null,
+    status: 'Disponible',
+    path: '/tenders',
   },
 ];
 

@@ -12,6 +12,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { CountResponseDto } from '../../common/dto/count-response.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateResourceAssignmentDto } from './dto/create-resource-assignment.dto';
@@ -71,6 +72,14 @@ export class ResourceAssignmentsService {
     private readonly auditLogsService: AuditLogsService,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  async countActiveAssignments(): Promise<CountResponseDto> {
+    const count = await this.prisma.resourceAssignment.count({
+      where: { status: ResourceAssignmentStatus.ACTIVE },
+    });
+
+    return { count };
+  }
 
   async listResourceAssignmentsByResource(
     resourceId: string,
