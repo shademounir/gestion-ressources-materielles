@@ -1,0 +1,138 @@
+erDiagram
+    ROLE ||--o{ USER : has
+    DEPARTMENT ||--o{ USER : contains
+    DEPARTMENT ||--o{ NEED : owns
+    USER ||--o{ NEED : creates
+    NEED ||--o{ NEED_ITEM : contains
+    NEED ||--o{ TENDER : generates
+    USER ||--o{ TENDER : creates
+    TENDER ||--o{ SUPPLIER_OFFER : receives
+    SUPPLIER ||--o{ SUPPLIER_OFFER : submits
+    SUPPLIER ||--o{ RESOURCE : provides
+    RESOURCE ||--o{ RESOURCE_ASSIGNMENT : assigned_as
+    USER ||--o{ RESOURCE_ASSIGNMENT : receives
+    RESOURCE ||--o{ MAINTENANCE_TICKET : has
+    USER ||--o{ MAINTENANCE_TICKET : reports
+    MAINTENANCE_TICKET ||--o| MAINTENANCE_REPORT : has
+    USER ||--o{ MAINTENANCE_REPORT : authors
+    MAINTENANCE_TICKET ||--o{ MAINTENANCE_INTERVENTION : tracks
+    MAINTENANCE_TICKET ||--o{ SUPPLIER_RETURN : sends
+    RESOURCE ||--o{ SUPPLIER_RETURN : returned_as
+    SUPPLIER ||--o{ SUPPLIER_RETURN : receives
+    USER ||--o{ NOTIFICATION : receives
+    USER ||--o{ AUDIT_LOG : triggers
+
+    ROLE {
+        string id PK
+        RoleName name UK
+        string description
+    }
+    USER {
+        string id PK
+        string email UK
+        string passwordHash
+        UserStatus status
+        string roleId FK
+        string departmentId FK
+    }
+    DEPARTMENT {
+        string id PK
+        string name UK
+        DepartmentStatus status
+        datetime deletedAt
+    }
+    NEED {
+        string id PK
+        string title
+        NeedPriority priority
+        NeedStatus status
+        string departmentId FK
+        string createdById FK
+    }
+    NEED_ITEM {
+        string id PK
+        string needId FK
+        string designation
+        int quantity
+        decimal estimatedUnitPrice
+    }
+    TENDER {
+        string id PK
+        string reference UK
+        TenderStatus status
+        datetime deadline
+        datetime publishedAt
+        datetime awardedAt
+        string needId FK
+        string createdById FK
+    }
+    SUPPLIER_OFFER {
+        string id PK
+        string tenderId FK
+        string supplierId FK
+        decimal amount
+        SupplierOfferStatus status
+        datetime selectedAt
+    }
+    SUPPLIER {
+        string id PK
+        string name UK
+        string contactEmail UK
+        SupplierStatus status
+    }
+    RESOURCE {
+        string id PK
+        string inventoryCode UK
+        string category
+        ResourceStatus status
+        string supplierId FK
+    }
+    RESOURCE_ASSIGNMENT {
+        string id PK
+        string resourceId FK
+        string userId FK
+        ResourceAssignmentStatus status
+        datetime assignedAt
+        datetime returnedAt
+    }
+    MAINTENANCE_TICKET {
+        string id PK
+        string resourceId FK
+        string reportedById FK
+        MaintenancePriority priority
+        MaintenanceTicketStatus status
+    }
+    MAINTENANCE_REPORT {
+        string id PK
+        string maintenanceTicketId FK
+        string authorId FK
+        MaintenanceSeverity severity
+    }
+    MAINTENANCE_INTERVENTION {
+        string id PK
+        string maintenanceTicketId FK
+        string technicianName
+        datetime startedAt
+        datetime completedAt
+    }
+    SUPPLIER_RETURN {
+        string id PK
+        string maintenanceTicketId FK
+        string resourceId FK
+        string supplierId FK
+        SupplierReturnStatus status
+    }
+    NOTIFICATION {
+        string id PK
+        string recipientId FK
+        NotificationType type
+        NotificationEntityType entityType
+        datetime readAt
+    }
+    AUDIT_LOG {
+        string id PK
+        string userId FK
+        AuditAction action
+        AuditEntityType entityType
+        json details
+    }

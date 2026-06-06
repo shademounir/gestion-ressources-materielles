@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    actor Manager as ADMIN ou MANAGER
+    participant UI as TendersPage
+    participant NeedAPI as DepartmentNeedsController
+    participant TenderAPI as TendersController
+    participant OfferAPI as SupplierOffersController
+    participant TenderService as TendersService
+    participant OfferService as SupplierOffersService
+    participant DB as PostgreSQL
+
+    Manager->>UI: Ouvre Appels d'offres
+    UI->>NeedAPI: GET /api/v1/department-needs?status=SUBMITTED
+    NeedAPI->>DB: Read needs and items
+    DB-->>UI: Besoins disponibles
+
+    Manager->>UI: Cree un appel d'offres depuis un besoin
+    UI->>TenderAPI: POST /api/v1/tenders
+    TenderAPI->>TenderService: createTender(dto, currentUser)
+    TenderService->>DB: Validate Need and active tender conflict
+    TenderService->>DB: Insert Tender DRAFT
+    TenderService-->>TenderAPI: TenderDetail
+    TenderAPI-->>UI: Tender cree
+
+    Manager->>UI: Publie l'appel d'offres
+    UI->>TenderAPI: PATCH /api/v1/tenders/:id/publish
+    TenderAPI->>TenderService: publishTender(id)
+    TenderService->>DB: Validate DRAFT and future deadline
+    TenderService->>DB: Update status PUBLISHED and publishedAt
+    TenderAPI-->>UI: Tender publie
+
+    Manager->>UI: Enregistre une offre fournisseur
+    UI->>OfferAPI: POST /api/v1/supplier-offers
+    OfferAPI->>OfferService: createOffer(dto)
+    OfferService->>DB: Validate Tender PUBLISHED and Supplier ACTIVE
+    OfferService->>DB: Insert SupplierOffer SUBMITTED
+    OfferAPI-->>UI: Offre creee
+
+    Manager->>UI: Selectionne l'offre gagnante
+    UI->>OfferAPI: PATCH /api/v1/supplier-offers/:id/select
+    OfferAPI->>OfferService: selectOffer(id)
+    OfferService->>DB: Transaction set winner SELECTED
+    OfferService->>DB: Transaction reject other offers
+    OfferService->>DB: Transaction set Tender AWARDED
+    OfferAPI-->>UI: Offre gagnante selectionnee

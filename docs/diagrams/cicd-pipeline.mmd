@@ -1,0 +1,37 @@
+flowchart LR
+    Push["Push or Pull Request"]
+    BackendCI["backend-ci.yml"]
+    FrontendCI["frontend-ci.yml"]
+    PRChecks["pr-checks.yml"]
+    Sonar["sonarcloud.yml"]
+    CodeQL["codeql.yml"]
+    Semgrep["semgrep.yml"]
+    Install["npm install"]
+    Lint["lint"]
+    Typecheck["typecheck"]
+    Tests["tests"]
+    Build["build"]
+    Artifacts["GitHub Actions artifacts"]
+    Review["Codex review and human review"]
+    Merge["Merge to develop or main"]
+
+    Push --> BackendCI
+    Push --> FrontendCI
+    Push --> PRChecks
+    Push --> Sonar
+    Push --> CodeQL
+    Push --> Semgrep
+
+    BackendCI --> Install
+    FrontendCI --> Install
+    PRChecks --> Install
+    Install --> Lint
+    Lint --> Typecheck
+    Typecheck --> Tests
+    Tests --> Build
+    Build --> Artifacts
+    Sonar --> Review
+    CodeQL --> Review
+    Semgrep --> Review
+    Artifacts --> Review
+    Review --> Merge

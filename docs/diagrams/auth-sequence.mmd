@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor User as Utilisateur
+    participant Front as Frontend LoginPage
+    participant AuthCtx as AuthContext
+    participant API as AuthController
+    participant Auth as AuthService
+    participant Users as UsersService
+    participant DB as PostgreSQL
+
+    User->>Front: Saisit email et mot de passe
+    Front->>API: POST /api/v1/auth/login
+    API->>Auth: login(dto)
+    Auth->>Users: findByEmail(email)
+    Users->>DB: SELECT User with Role
+    DB-->>Users: User actif ou null
+    Users-->>Auth: User
+    Auth->>Auth: Verifie bcrypt passwordHash
+    Auth->>Auth: Genere JWT access token
+    Auth-->>API: LoginResponse
+    API-->>Front: accessToken + user
+    Front->>AuthCtx: setSession(response)
+    AuthCtx->>Front: session persistee
+    Front-->>User: Redirection /dashboard
