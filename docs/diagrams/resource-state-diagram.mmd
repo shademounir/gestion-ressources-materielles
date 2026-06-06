@@ -1,0 +1,15 @@
+stateDiagram-v2
+    [*] --> AVAILABLE: Resource created
+    AVAILABLE --> ASSIGNED: ResourceAssignment ACTIVE
+    ASSIGNED --> AVAILABLE: Assignment RETURNED
+    AVAILABLE --> UNDER_MAINTENANCE: Maintenance ticket OPEN
+    ASSIGNED --> UNDER_MAINTENANCE: Failure reported
+    UNDER_MAINTENANCE --> AVAILABLE: Manual status update
+    UNDER_MAINTENANCE --> OUT_OF_SERVICE: Manual status update
+    AVAILABLE --> OUT_OF_SERVICE: Manual status update
+    OUT_OF_SERVICE --> AVAILABLE: Manual status update
+    AVAILABLE --> ARCHIVED: Manual status update
+    ASSIGNED --> ARCHIVED: Manual status update
+    UNDER_MAINTENANCE --> ARCHIVED: Manual status update
+    OUT_OF_SERVICE --> ARCHIVED: Manual status update
+    ARCHIVED --> [*]

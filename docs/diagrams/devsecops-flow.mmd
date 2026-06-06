@@ -1,0 +1,31 @@
+flowchart TB
+    Jira["Jira Story"]
+    Branch["feature branch"]
+    Codex["Codex implementation"]
+    Commit["Conventional commit"]
+    Push["Push GitHub"]
+    PR["Pull Request"]
+    CI["GitHub Actions CI"]
+    Quality["SonarCloud Quality Gate"]
+    Security["CodeQL and Semgrep"]
+    Artifacts["Coverage and build artifacts"]
+    AutoReview["Codex review"]
+    HumanReview["Human review"]
+    Merge["Merge after approval"]
+    Release["Release documentation and tag"]
+
+    Jira --> Branch
+    Branch --> Codex
+    Codex --> Commit
+    Commit --> Push
+    Push --> PR
+    PR --> CI
+    CI --> Quality
+    CI --> Security
+    CI --> Artifacts
+    Quality --> AutoReview
+    Security --> AutoReview
+    Artifacts --> HumanReview
+    AutoReview --> HumanReview
+    HumanReview --> Merge
+    Merge --> Release

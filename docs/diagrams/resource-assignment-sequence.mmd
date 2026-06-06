@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor Manager as ADMIN ou MANAGER
+    participant UI as AssignmentsPage
+    participant API as ResourceAssignmentsController
+    participant Service as ResourceAssignmentsService
+    participant Prisma as PrismaService
+    participant Audit as AuditLogsService
+    participant Notif as NotificationsService
+
+    Manager->>UI: Selectionne ressource disponible et utilisateur actif
+    UI->>API: POST /api/v1/resource-assignments
+    API->>Service: assignResource(dto, currentUser)
+    Service->>Prisma: Transaction create assignment ACTIVE
+    Service->>Prisma: Transaction update Resource ASSIGNED
+    Prisma-->>Service: Assignment creee
+    Service->>Audit: RESOURCE_ASSIGNED
+    Service->>Notif: RESOURCE_ASSIGNED
+    Service-->>API: ResourceAssignmentResponse
+    API-->>UI: 201 Created
+
+    Manager->>UI: Retourne la ressource
+    UI->>API: PATCH /api/v1/resource-assignments/:id/return
+    API->>Service: returnResource(id, dto, currentUser)
+    Service->>Prisma: Transaction update assignment RETURNED
+    Service->>Prisma: Transaction update Resource AVAILABLE
+    Service->>Audit: RESOURCE_RETURNED
+    Service->>Notif: RESOURCE_RETURNED
+    Service-->>API: ResourceAssignmentResponse
+    API-->>UI: 200 OK

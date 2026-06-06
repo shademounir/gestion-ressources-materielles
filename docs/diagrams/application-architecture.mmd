@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph Monorepo["Monorepo"]
+        subgraph Frontend["frontend - React TypeScript Vite"]
+            Pages["Pages: Login, Dashboard, Resources, Assignments, Maintenance, Notifications, Admin Users, Suppliers, Tenders"]
+            Router["React Router protected routes"]
+            AuthContext["AuthContext session storage"]
+            ApiClient["apiClient with Bearer JWT"]
+            SharedUi["Shared components and formatting helpers"]
+        end
+
+        subgraph Backend["backend - NestJS TypeScript"]
+            Main["main.ts global prefix api/v1"]
+            Swagger["Swagger api/docs"]
+            Config["ConfigModule and env validation"]
+            Guards["JwtAuthGuard and RolesGuard"]
+            Modules["Feature modules"]
+            PrismaService["PrismaService"]
+        end
+
+        subgraph Infra["infra and root"]
+            Compose["docker-compose PostgreSQL"]
+            Workflows["GitHub Actions workflows"]
+            Docs["docs architecture and diagrams"]
+        end
+    end
+
+    PostgreSQL[("PostgreSQL")]
+
+    Pages --> Router
+    Router --> AuthContext
+    Pages --> ApiClient
+    ApiClient --> Main
+    Main --> Swagger
+    Main --> Config
+    Main --> Guards
+    Main --> Modules
+    Modules --> PrismaService
+    PrismaService --> PostgreSQL
+    Compose --> PostgreSQL
+    Workflows --> Frontend
+    Workflows --> Backend
+    Docs --> Monorepo
