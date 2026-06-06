@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseUUIDPipe,
   Post,
@@ -16,9 +17,11 @@ import {
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiOkResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CountResponseDto } from '../../common/dto/count-response.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -38,6 +41,20 @@ import { MaintenanceService } from './maintenance.service';
 @Controller('maintenance-tickets')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
+
+  @Get('open-count')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Compter les tickets de maintenance ouverts' })
+  @ApiOkResponse({ type: CountResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({
+    description: 'Role insuffisant pour consulter le compteur maintenance',
+  })
+  getOpenCount(): Promise<CountResponseDto> {
+    return this.maintenanceService.countOpenTickets();
+  }
 
   @Post(':id/supplier-return')
   @ApiBearerAuth()

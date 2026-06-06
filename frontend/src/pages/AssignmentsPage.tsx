@@ -10,6 +10,7 @@ import {
   type AssignmentHistoryResponse,
   type AssignmentStatus,
 } from '../modules/assignments/assignmentsService';
+import { listUsers, type AdminUser } from '../modules/admin/usersAdminService';
 import { listResources, type ResourceListItem } from '../modules/resources/resourcesService';
 import { useAuth } from '../modules/auth/useAuth';
 import { FeedbackMessage } from '../shared/components/FeedbackMessage';
@@ -30,6 +31,7 @@ export function AssignmentsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [resources, setResources] = useState<ResourceListItem[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedResourceId, setSelectedResourceId] = useState(
     searchParams.get('resourceId') ?? '',
   );
@@ -48,6 +50,7 @@ export function AssignmentsPage() {
   const [assignmentComment, setAssignmentComment] = useState('');
   const [returnComment, setReturnComment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function AssignmentsPage() {
   );
 
   const selectedResource = resources.find((resource) => resource.id === selectedResourceId);
+  const activeUsers = users.filter((user) => user.isActive);
 
   const fetchResources = useCallback(async () => {
     setErrorMessage(null);
@@ -85,6 +89,28 @@ export function AssignmentsPage() {
       setResources(response.data);
     } catch {
       setErrorMessage('Impossible de charger les ressources disponibles.');
+    }
+  }, [accessToken]);
+
+  const fetchUsers = useCallback(async () => {
+    setIsUsersLoading(true);
+
+    try {
+      const response = await listUsers(
+        {
+          page: 1,
+          limit: 100,
+          status: 'ACTIVE',
+        },
+        accessToken,
+      );
+
+      setUsers(response.data);
+    } catch {
+      setErrorMessage('Impossible de charger la liste des utilisateurs actifs.');
+      setUsers([]);
+    } finally {
+      setIsUsersLoading(false);
     }
   }, [accessToken]);
 
@@ -116,6 +142,10 @@ export function AssignmentsPage() {
   useEffect(() => {
     void fetchResources();
   }, [fetchResources]);
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
 
   useEffect(() => {
     void fetchHistory();
@@ -151,7 +181,7 @@ export function AssignmentsPage() {
     event.preventDefault();
 
     if (!selectedResourceId || !userId.trim()) {
-      setErrorMessage('Ressource et utilisateur sont obligatoires.');
+      setErrorMessage('Selectionnez une ressource et un utilisateur actif.');
       return;
     }
 
@@ -369,20 +399,34 @@ export function AssignmentsPage() {
           <section className="resource-create-panel" aria-labelledby="assignment-create-title">
             <div className="section-heading">
               <h2 id="assignment-create-title">Nouvelle affectation</h2>
-              <p>La selection utilisateur reste manuelle tant qu'aucune API liste utilisateurs n'est exposee.</p>
+              <p>Selectionnez une ressource disponible puis un utilisateur actif.</p>
             </div>
 
             <form className="resource-create-form" onSubmit={(event) => void handleCreateAssignment(event)}>
-              <label className="form-field" htmlFor="assignment-user-id">
-                <span>Utilisateur ID</span>
-                <input
-                  id="assignment-user-id"
+              <label className="form-field" htmlFor="assignment-user">
+                <span>Utilisateur</span>
+                <select
+                  id="assignment-user"
                   value={userId}
                   onChange={(event) => setUserId(event.target.value)}
-                  placeholder="UUID utilisateur"
+                  disabled={isUsersLoading || activeUsers.length === 0}
                   required
-                />
+                >
+                  <option value="">
+                    {isUsersLoading ? 'Chargement des utilisateurs...' : 'Selectionner un utilisateur'}
+                  </option>
+                  {activeUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName} - {user.email} - {user.role}
+                    </option>
+                  ))}
+                </select>
               </label>
+              {!isUsersLoading && activeUsers.length === 0 ? (
+                <p className="muted-copy">
+                  Aucun utilisateur actif disponible pour une affectation.
+                </p>
+              ) : null}
 
               <label className="form-field" htmlFor="assignment-comment">
                 <span>Commentaire</span>
@@ -393,7 +437,11 @@ export function AssignmentsPage() {
                 />
               </label>
 
-              <button className="primary-action" type="submit" disabled={isSaving}>
+              <button
+                className="primary-action"
+                type="submit"
+                disabled={isSaving || activeUsers.length === 0}
+              >
                 {isSaving ? 'Affectation...' : 'Affecter la ressource'}
               </button>
             </form>

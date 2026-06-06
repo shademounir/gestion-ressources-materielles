@@ -195,6 +195,17 @@ describe('ResourceAssignmentsService', () => {
     });
   });
 
+  it('counts active assignments', async () => {
+    prisma.resourceAssignment.count.mockResolvedValue(2);
+
+    const result = await service.countActiveAssignments();
+
+    expect(prisma.resourceAssignment.count).toHaveBeenCalledWith({
+      where: { status: ResourceAssignmentStatus.ACTIVE },
+    });
+    expect(result).toEqual({ count: 2 });
+  });
+
   it('normalizes assignment history pagination', async () => {
     prisma.resource.findUnique.mockResolvedValue({ id: 'resource-1' });
     prisma.resourceAssignment.count.mockResolvedValue(0);

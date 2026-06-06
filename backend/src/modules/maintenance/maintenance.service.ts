@@ -16,6 +16,7 @@ import {
   SupplierReturnStatus,
   SupplierStatus,
 } from '@prisma/client';
+import { CountResponseDto } from '../../common/dto/count-response.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -142,6 +143,21 @@ export class MaintenanceService {
     private readonly auditLogsService: AuditLogsService,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  async countOpenTickets(): Promise<CountResponseDto> {
+    const count = await this.prisma.maintenanceTicket.count({
+      where: {
+        status: {
+          in: [
+            MaintenanceTicketStatus.OPEN,
+            MaintenanceTicketStatus.IN_PROGRESS,
+          ],
+        },
+      },
+    });
+
+    return { count };
+  }
 
   async reportFailure(
     createMaintenanceTicketDto: CreateMaintenanceTicketDto,

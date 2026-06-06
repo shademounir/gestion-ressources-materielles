@@ -98,6 +98,18 @@ export interface SupplierReturnResponse {
   updatedAt: string;
 }
 
+export interface CountResponse {
+  count: number;
+}
+
+export function getOpenMaintenanceTicketCount(
+  accessToken: string | null,
+): Promise<CountResponse> {
+  return apiClient<CountResponse>('/maintenance-tickets/open-count', {
+    accessToken,
+  });
+}
+
 export function createMaintenanceTicket(
   payload: CreateMaintenanceTicketPayload,
   accessToken: string | null,

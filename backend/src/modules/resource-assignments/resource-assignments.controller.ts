@@ -22,6 +22,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CountResponseDto } from '../../common/dto/count-response.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -39,6 +40,18 @@ export class ResourceAssignmentsController {
   constructor(
     private readonly resourceAssignmentsService: ResourceAssignmentsService,
   ) {}
+
+  @Get('active-count')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Compter les affectations actives' })
+  @ApiOkResponse({ type: CountResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour consulter le compteur' })
+  getActiveCount(): Promise<CountResponseDto> {
+    return this.resourceAssignmentsService.countActiveAssignments();
+  }
 
   @Get(':id')
   @ApiBearerAuth()

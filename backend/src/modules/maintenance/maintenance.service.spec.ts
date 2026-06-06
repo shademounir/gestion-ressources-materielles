@@ -49,6 +49,9 @@ type TransactionMock = {
 
 type PrismaMock = {
   $transaction: jest.Mock;
+  maintenanceTicket: {
+    count: jest.Mock;
+  };
 };
 
 type NotificationsServiceMock = {
@@ -106,6 +109,9 @@ describe('MaintenanceService', () => {
       $transaction: jest.fn((callback: (client: TransactionMock) => unknown) =>
         callback(tx),
       ),
+      maintenanceTicket: {
+        count: jest.fn(),
+      },
     };
     notificationsService = {
       notifyMaintenanceReported: jest.fn(),
@@ -124,6 +130,24 @@ describe('MaintenanceService', () => {
       auditLogsService as unknown as AuditLogsService,
       notificationsService as unknown as NotificationsService,
     );
+  });
+
+  it('counts open and in-progress maintenance tickets', async () => {
+    prisma.maintenanceTicket.count.mockResolvedValue(2);
+
+    const result = await service.countOpenTickets();
+
+    expect(prisma.maintenanceTicket.count).toHaveBeenCalledWith({
+      where: {
+        status: {
+          in: [
+            MaintenanceTicketStatus.OPEN,
+            MaintenanceTicketStatus.IN_PROGRESS,
+          ],
+        },
+      },
+    });
+    expect(result).toEqual({ count: 2 });
   });
 
   it('creates a supplier return for a ticket with report and intervention', async () => {

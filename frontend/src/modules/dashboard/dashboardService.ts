@@ -1,3 +1,5 @@
+import { getActiveAssignmentCount } from '../assignments/assignmentsService';
+import { getOpenMaintenanceTicketCount } from '../maintenance/maintenanceService';
 import { getUnreadNotificationCount } from '../notifications/notificationsService';
 import { listResources, type ResourceListResponse } from '../resources/resourcesService';
 
@@ -37,7 +39,13 @@ function resolveTotal(response: ResourceListResponse): number {
 export async function getDashboardMetrics(
   accessToken: string | null,
 ): Promise<DashboardMetrics> {
-  const [totalResources, availableResources, unreadNotifications] = await Promise.all([
+  const [
+    totalResources,
+    availableResources,
+    unreadNotifications,
+    activeAssignments,
+    openMaintenanceTickets,
+  ] = await Promise.all([
     safeMetric(
       async () =>
         resolveTotal(
@@ -69,11 +77,23 @@ export async function getDashboardMetrics(
       async () => (await getUnreadNotificationCount(accessToken)).unreadCount,
       0,
     ),
+    safeMetric(
+      async () => (await getActiveAssignmentCount(accessToken)).count,
+      0,
+    ),
+    safeMetric(
+      async () => (await getOpenMaintenanceTicketCount(accessToken)).count,
+      0,
+    ),
   ]);
 
   return {
     hasPartialError:
-      totalResources.hasError || availableResources.hasError || unreadNotifications.hasError,
+      totalResources.hasError ||
+      availableResources.hasError ||
+      unreadNotifications.hasError ||
+      activeAssignments.hasError ||
+      openMaintenanceTickets.hasError,
     kpis: [
       {
         label: 'Ressources totales',
@@ -92,15 +112,13 @@ export async function getDashboardMetrics(
       },
       {
         label: 'Affectations actives',
-        value: 'A connecter',
-        trend: 'Endpoint global non disponible',
-        isFallback: true,
+        value: String(activeAssignments.value),
+        trend: activeAssignments.hasError ? 'Erreur de chargement' : 'En cours',
       },
       {
         label: 'Tickets maintenance ouverts',
-        value: 'A connecter',
-        trend: 'Endpoint global non disponible',
-        isFallback: true,
+        value: String(openMaintenanceTickets.value),
+        trend: openMaintenanceTickets.hasError ? 'Erreur de chargement' : 'A suivre',
       },
     ],
   };
