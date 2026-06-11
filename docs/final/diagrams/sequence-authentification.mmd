@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor U as Utilisateur
+  participant F as Frontend React
+  participant A as AuthController
+  participant S as AuthService
+  participant P as Prisma
+  participant DB as PostgreSQL
+
+  U->>F: Saisit email et mot de passe
+  F->>A: POST /api/v1/auth/login
+  A->>S: validateCredentials(dto)
+  S->>P: findUnique(email, include role)
+  P->>DB: SELECT User + Role
+  DB-->>P: utilisateur actif
+  P-->>S: User
+  S->>S: compare bcrypt passwordHash
+  S->>S: generer JWT
+  S-->>A: accessToken + user
+  A-->>F: 200 OK
+  F->>F: stocker accessToken
+  F-->>U: redirection /dashboard
