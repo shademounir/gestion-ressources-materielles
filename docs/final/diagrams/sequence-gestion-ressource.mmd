@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  actor M as Admin ou Manager
+  participant F as Frontend ResourcesPage
+  participant C as ResourcesController
+  participant G as JwtAuthGuard + RolesGuard
+  participant S as ResourcesService
+  participant A as AuditLogsService
+  participant P as Prisma
+  participant DB as PostgreSQL
+
+  M->>F: Remplit formulaire ressource
+  F->>C: POST /api/v1/resources
+  C->>G: verifier JWT et role
+  G-->>C: acces autorise
+  C->>S: create(dto, currentUser)
+  S->>P: verifier inventoryCode unique
+  P->>DB: SELECT Resource
+  DB-->>P: aucun doublon
+  S->>P: create Resource AVAILABLE
+  P->>DB: INSERT Resource
+  DB-->>P: Resource creee
+  S->>A: createAuditLog(RESOURCE_CREATED)
+  A->>P: INSERT AuditLog
+  S-->>C: ResourceResponseDto
+  C-->>F: 201 Created
+  F-->>M: ressource visible dans inventaire

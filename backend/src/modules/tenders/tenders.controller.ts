@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -27,7 +29,12 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.interface';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { ListSupplierOffersQueryDto } from '../supplier-offers/dto/list-supplier-offers-query.dto';
+import { SupplierOfferListResponseDto } from '../supplier-offers/dto/supplier-offer-read-response.dto';
 import { CreateTenderDto } from './dto/create-tender.dto';
+import { ListTendersQueryDto } from './dto/list-tenders-query.dto';
+import { TenderDetailResponseDto } from './dto/tender-detail-response.dto';
+import { TenderListResponseDto } from './dto/tender-list-response.dto';
 import { TenderResponseDto } from './dto/tender-response.dto';
 import { TendersService } from './tenders.service';
 
@@ -35,6 +42,18 @@ import { TendersService } from './tenders.service';
 @Controller('tenders')
 export class TendersController {
   constructor(private readonly tendersService: TendersService) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Lister les appels d'offres" })
+  @ApiOkResponse({ type: TenderListResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: "Role insuffisant pour lister les appels d'offres" })
+  list(@Query() query: ListTendersQueryDto): Promise<TenderListResponseDto> {
+    return this.tendersService.listTenders(query);
+  }
 
   @Post()
   @ApiBearerAuth()
@@ -60,6 +79,39 @@ export class TendersController {
     }
 
     return this.tendersService.createTender(createTenderDto, createdById);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Consulter un appel d'offres" })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'appel d'offres" })
+  @ApiOkResponse({ type: TenderDetailResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: "Role insuffisant pour consulter un appel d'offres" })
+  @ApiNotFoundResponse({ description: "Appel d'offres introuvable" })
+  getById(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) tenderId: string,
+  ): Promise<TenderDetailResponseDto> {
+    return this.tendersService.getTenderById(tenderId);
+  }
+
+  @Get(':id/offers')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Lister les offres d'un appel d'offres" })
+  @ApiParam({ name: 'id', description: "Identifiant UUID de l'appel d'offres" })
+  @ApiOkResponse({ type: SupplierOfferListResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: "Role insuffisant pour consulter les offres" })
+  @ApiNotFoundResponse({ description: "Appel d'offres introuvable" })
+  listOffers(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) tenderId: string,
+    @Query() query: ListSupplierOffersQueryDto,
+  ): Promise<SupplierOfferListResponseDto> {
+    return this.tendersService.listTenderOffers(tenderId, query);
   }
 
   @Patch(':id/publish')

@@ -2,10 +2,15 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DepartmentNeedsModule } from './modules/department-needs/department-needs.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { HealthModule } from './modules/health/health.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ResourceAssignmentsModule } from './modules/resource-assignments/resource-assignments.module';
+import { ResourcesModule } from './modules/resources/resources.module';
 import { SupplierOffersModule } from './modules/supplier-offers/supplier-offers.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { TendersModule } from './modules/tenders/tenders.module';
@@ -19,11 +24,16 @@ import { UsersModule } from './modules/users/users.module';
       validate: validateEnv,
     }),
     PrismaModule,
+    AuditLogsModule,
     HealthModule,
+    NotificationsModule,
+    MaintenanceModule,
     AuthModule,
     UsersModule,
     DepartmentsModule,
     DepartmentNeedsModule,
+    ResourceAssignmentsModule,
+    ResourcesModule,
     SupplierOffersModule,
     SuppliersModule,
     TendersModule,

@@ -11,13 +11,27 @@ GitHub Actions doit automatiser les controles de qualite, securite, build et liv
 |-- pr-checks.yml
 |-- backend-ci.yml
 |-- frontend-ci.yml
-|-- security-scan.yml
 |-- sonarcloud.yml
-|-- release.yml
-`-- deploy-staging.yml
+|-- codeql.yml
+`-- semgrep.yml
 ```
 
-Ces fichiers ne seront crees que lors de l'initialisation technique reelle.
+Cette structure est active dans le depot. Les workflows de deploiement ne sont pas inclus dans SCRUM-48 afin de garder une separation nette entre verification CI et livraison applicative.
+
+## Automatisation SCRUM-48
+
+SCRUM-48 s'appuie sur les workflows existants plutot que sur un nouveau fichier CI. Cette decision evite la duplication des jobs et reduit le risque de divergence entre plusieurs pipelines.
+
+Chaine de verification actuelle :
+
+1. `npm ci`.
+2. `npm run prisma:generate --workspace backend`.
+3. Lint backend et frontend.
+4. Typecheck backend et frontend.
+5. Tests avec couverture backend et frontend.
+6. Build backend et frontend.
+7. Publication des artefacts de coverage et build.
+8. Analyses SonarCloud, CodeQL et Semgrep.
 
 ## PR checks
 
@@ -29,12 +43,15 @@ Declencheurs :
 Jobs :
 
 - install ;
+- Prisma generate ;
 - lint ;
 - typecheck ;
-- tests unitaires ;
+- tests unitaires avec coverage ;
 - build ;
-- security scan ;
-- SonarCloud analysis.
+- publication artefacts ;
+- analyses qualite et securite via workflows dedies.
+
+`pr-checks.yml` est le workflow de reference pour les Pull Requests. Il execute deux jobs separes, backend et frontend, afin de garder une lecture claire des echecs.
 
 ## CI backend
 
@@ -60,6 +77,18 @@ Etapes ciblees :
 - build React/Vite ;
 - preparer artefact frontend si necessaire.
 
+## Analyses qualite et securite
+
+Les controles transverses sont separes des jobs de build pour faciliter la lecture des resultats :
+
+| Workflow         | Outil         | Role                                                                        |
+| ---------------- | ------------- | --------------------------------------------------------------------------- |
+| `sonarcloud.yml` | SonarCloud    | Quality Gate, coverage, duplication, maintainability, reliability, security |
+| `codeql.yml`     | GitHub CodeQL | Analyse statique de securite JavaScript/TypeScript                          |
+| `semgrep.yml`    | Semgrep       | Detection de patterns securite et qualite                                   |
+
+Cette separation permet d'identifier rapidement si un echec vient du build, des tests, de la qualite de code ou de la securite.
+
 ## Pipeline release
 
 Declencheurs :
@@ -67,6 +96,8 @@ Declencheurs :
 - merge dans `main` ;
 - creation de tag ;
 - branche `release/*` selon strategie retenue.
+
+La strategie finale retenue pour Render sera documentee dans SCRUM-49. Le principe cible est un deploiement uniquement depuis un tag stable `v*`, jamais depuis un simple push `develop`.
 
 Etapes :
 

@@ -67,6 +67,91 @@ enum SupplierOfferStatus {
   WITHDRAWN
 }
 
+enum ResourceStatus {
+  AVAILABLE
+  ASSIGNED
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+  ARCHIVED
+}
+
+enum ResourceAssignmentStatus {
+  ACTIVE
+  RETURNED
+  CANCELLED
+}
+
+enum MaintenanceTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SupplierReturnStatus {
+  SENT_TO_SUPPLIER
+  IN_REPAIR
+  RETURNED
+  CANCELLED
+}
+
+enum NotificationType {
+  RESOURCE_ASSIGNED
+  RESOURCE_RETURNED
+  MAINTENANCE_REPORTED
+  MAINTENANCE_REPORT_CREATED
+  MAINTENANCE_INTERVENTION_CREATED
+  SUPPLIER_RETURN_CREATED
+}
+
+enum NotificationEntityType {
+  RESOURCE
+  RESOURCE_ASSIGNMENT
+  MAINTENANCE_TICKET
+  MAINTENANCE_REPORT
+  MAINTENANCE_INTERVENTION
+  SUPPLIER_RETURN
+}
+
+enum AuditAction {
+  RESOURCE_CREATED
+  RESOURCE_STATUS_UPDATED
+  RESOURCE_ASSIGNED
+  RESOURCE_RETURNED
+  MAINTENANCE_REPORTED
+  MAINTENANCE_REPORT_CREATED
+  MAINTENANCE_INTERVENTION_CREATED
+  SUPPLIER_RETURN_CREATED
+  USER_CREATED
+  USER_ROLE_UPDATED
+  USER_DEACTIVATED
+}
+
+enum AuditEntityType {
+  RESOURCE
+  RESOURCE_ASSIGNMENT
+  MAINTENANCE_TICKET
+  MAINTENANCE_REPORT
+  MAINTENANCE_INTERVENTION
+  SUPPLIER_RETURN
+  USER
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -89,22 +174,26 @@ model Department {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  status       UserStatus @default(ACTIVE)
-  roleId       String
-  role         Role       @relation(fields: [roleId], references: [id])
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-  auditLogs    AuditLog[]
-  createdNeeds Need[]      @relation("NeedCreatedBy")
-  createdTenders Tender[]  @relation("TenderCreatedBy")
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
+  id                         String               @id @default(uuid())
+  email                      String               @unique
+  passwordHash               String
+  firstName                  String
+  lastName                   String
+  status                     UserStatus           @default(ACTIVE)
+  roleId                     String
+  role                       Role                 @relation(fields: [roleId], references: [id])
+  departmentId               String?
+  department                 Department?          @relation(fields: [departmentId], references: [id])
+  auditLogs                  AuditLog[]
+  createdNeeds               Need[]               @relation("NeedCreatedBy")
+  createdTenders             Tender[]             @relation("TenderCreatedBy")
+  resourceAssignments        ResourceAssignment[]
+  reportedMaintenanceTickets MaintenanceTicket[]  @relation("MaintenanceTicketReportedBy")
+  authoredMaintenanceReports MaintenanceReport[]  @relation("MaintenanceReportAuthor")
+  notifications              Notification[]       @relation("NotificationRecipient")
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  deletedAt                  DateTime?
 
   @@index([email])
   @@index([roleId])
@@ -148,15 +237,17 @@ model NeedItem {
 }
 
 model Supplier {
-  id           String         @id @default(uuid())
-  name         String         @unique
-  contactEmail String?        @unique
-  phone        String?
-  address      String?
-  status       SupplierStatus @default(ACTIVE)
-  offers       SupplierOffer[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id              String           @id @default(uuid())
+  name            String           @unique
+  contactEmail    String?          @unique
+  phone           String?
+  address         String?
+  status          SupplierStatus   @default(ACTIVE)
+  offers          SupplierOffer[]
+  resources       Resource[]
+  supplierReturns SupplierReturn[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([name])
   @@index([contactEmail])
@@ -164,21 +255,21 @@ model Supplier {
 }
 
 model Tender {
-  id          String       @id @default(uuid())
-  reference   String       @unique
+  id          String          @id @default(uuid())
+  reference   String          @unique
   title       String
   description String
-  status      TenderStatus @default(DRAFT)
+  status      TenderStatus    @default(DRAFT)
   deadline    DateTime
   publishedAt DateTime?
   awardedAt   DateTime?
   needId      String
-  need        Need         @relation(fields: [needId], references: [id])
+  need        Need            @relation(fields: [needId], references: [id])
   createdById String
-  createdBy   User         @relation("TenderCreatedBy", fields: [createdById], references: [id])
+  createdBy   User            @relation("TenderCreatedBy", fields: [createdById], references: [id])
   offers      SupplierOffer[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@index([needId])
   @@index([createdById])
@@ -208,17 +299,168 @@ model SupplierOffer {
   @@index([submittedAt])
 }
 
-model AuditLog {
-  id         String   @id @default(uuid())
-  actorId    String?
-  actor      User?    @relation(fields: [actorId], references: [id])
-  action     String
-  targetType String
-  targetId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
+model Resource {
+  id                 String               @id @default(uuid())
+  name               String
+  inventoryCode      String               @unique
+  category           String
+  description        String?
+  serialNumber       String?
+  acquisitionDate    DateTime?
+  acquisitionValue   Decimal?
+  status             ResourceStatus       @default(AVAILABLE)
+  supplierId         String?
+  supplier           Supplier?            @relation(fields: [supplierId], references: [id])
+  assignments        ResourceAssignment[]
+  maintenanceTickets MaintenanceTicket[]
+  supplierReturns    SupplierReturn[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
-  @@index([actorId])
-  @@index([targetType, targetId])
+  @@index([inventoryCode])
+  @@index([category])
+  @@index([status])
+  @@index([supplierId])
+  @@index([createdAt])
+}
+
+model ResourceAssignment {
+  id            String                   @id @default(uuid())
+  resourceId    String
+  resource      Resource                 @relation(fields: [resourceId], references: [id])
+  userId        String
+  user          User                     @relation(fields: [userId], references: [id])
+  assignedAt    DateTime                 @default(now())
+  returnedAt    DateTime?
+  status        ResourceAssignmentStatus @default(ACTIVE)
+  comment       String?
+  returnComment String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@index([resourceId])
+  @@index([userId])
+  @@index([status])
+  @@index([assignedAt])
+}
+
+model MaintenanceTicket {
+  id              String                    @id @default(uuid())
+  resourceId      String
+  resource        Resource                  @relation(fields: [resourceId], references: [id])
+  reportedById    String
+  reportedBy      User                      @relation("MaintenanceTicketReportedBy", fields: [reportedById], references: [id])
+  description     String
+  priority        MaintenancePriority
+  status          MaintenanceTicketStatus   @default(OPEN)
+  openedAt        DateTime                  @default(now())
+  closedAt        DateTime?
+  report          MaintenanceReport?
+  interventions   MaintenanceIntervention[]
+  supplierReturns SupplierReturn[]
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([resourceId])
+  @@index([reportedById])
+  @@index([priority])
+  @@index([status])
+  @@index([openedAt])
+}
+
+model MaintenanceReport {
+  id                  String              @id @default(uuid())
+  maintenanceTicketId String              @unique
+  maintenanceTicket   MaintenanceTicket   @relation(fields: [maintenanceTicketId], references: [id])
+  authorId            String
+  author              User                @relation("MaintenanceReportAuthor", fields: [authorId], references: [id])
+  diagnosis           String
+  probableCause       String
+  severity            MaintenanceSeverity
+  recommendations     String?
+  reportedAt          DateTime            @default(now())
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([authorId])
+  @@index([severity])
+  @@index([reportedAt])
+}
+
+model MaintenanceIntervention {
+  id                  String            @id @default(uuid())
+  maintenanceTicketId String
+  maintenanceTicket   MaintenanceTicket @relation(fields: [maintenanceTicketId], references: [id])
+  technicianName      String
+  description         String
+  startedAt           DateTime
+  completedAt         DateTime?
+  cost                Decimal?
+  result              String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([maintenanceTicketId])
+  @@index([startedAt])
+  @@index([completedAt])
+}
+
+model SupplierReturn {
+  id                  String               @id @default(uuid())
+  maintenanceTicketId String
+  maintenanceTicket   MaintenanceTicket    @relation(fields: [maintenanceTicketId], references: [id])
+  resourceId          String
+  resource            Resource             @relation(fields: [resourceId], references: [id])
+  supplierId          String
+  supplier            Supplier             @relation(fields: [supplierId], references: [id])
+  reason              String
+  sentAt              DateTime
+  expectedReturnAt    DateTime?
+  actualReturnAt      DateTime?
+  status              SupplierReturnStatus @default(SENT_TO_SUPPLIER)
+  comment             String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([maintenanceTicketId])
+  @@index([resourceId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+model Notification {
+  id          String                 @id @default(uuid())
+  recipientId String?
+  recipient   User?                  @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  type        NotificationType
+  title       String
+  message     String
+  entityType  NotificationEntityType
+  entityId    String
+  readAt      DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([recipientId])
+  @@index([type])
+  @@index([entityType, entityId])
+  @@index([readAt])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String          @id @default(uuid())
+  userId     String?
+  user       User?           @relation(fields: [userId], references: [id])
+  action     AuditAction
+  entityType AuditEntityType
+  entityId   String
+  details    Json?
+  createdAt  DateTime        @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
   @@index([createdAt])
 }

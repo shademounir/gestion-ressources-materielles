@@ -1,0 +1,43 @@
+flowchart LR
+  Admin([Administrateur])
+  Manager([Manager / Responsable ressources])
+  User([Utilisateur interne])
+  Tech([Technicien maintenance])
+  Supplier([Fournisseur reference])
+
+  subgraph App[Gestion des Ressources Materielles]
+    UC1((Se connecter))
+    UC2((Administrer utilisateurs))
+    UC3((Gerer ressources))
+    UC4((Affecter ressource))
+    UC5((Retourner ressource))
+    UC6((Gerer maintenance))
+    UC7((Gerer fournisseurs))
+    UC8((Gerer appels offres))
+    UC9((Consulter notifications))
+    UC10((Auditer actions))
+  end
+
+  Admin --> UC1
+  Admin --> UC2
+  Admin --> UC3
+  Admin --> UC4
+  Admin --> UC5
+  Admin --> UC6
+  Admin --> UC7
+  Admin --> UC8
+  Admin --> UC9
+  Admin --> UC10
+  Manager --> UC1
+  Manager --> UC3
+  Manager --> UC4
+  Manager --> UC5
+  Manager --> UC6
+  Manager --> UC7
+  Manager --> UC8
+  Manager --> UC9
+  User --> UC1
+  User --> UC9
+  Tech --> UC6
+  Supplier --> UC7
+  Supplier --> UC8

@@ -1,0 +1,55 @@
+erDiagram
+  ROLE ||--o{ USER : grants
+  DEPARTMENT ||--o{ USER : contains
+  DEPARTMENT ||--o{ NEED : owns
+  USER ||--o{ NEED : creates
+  NEED ||--|{ NEED_ITEM : contains
+  NEED ||--o{ TENDER : produces
+  USER ||--o{ TENDER : creates
+  TENDER ||--o{ SUPPLIER_OFFER : receives
+  SUPPLIER ||--o{ SUPPLIER_OFFER : submits
+  SUPPLIER ||--o{ RESOURCE : provides
+  RESOURCE ||--o{ RESOURCE_ASSIGNMENT : assigned
+  USER ||--o{ RESOURCE_ASSIGNMENT : receives
+  RESOURCE ||--o{ MAINTENANCE_TICKET : has
+  USER ||--o{ MAINTENANCE_TICKET : reports
+  MAINTENANCE_TICKET ||--o| MAINTENANCE_REPORT : documents
+  MAINTENANCE_TICKET ||--o{ MAINTENANCE_INTERVENTION : follows
+  MAINTENANCE_TICKET ||--o{ SUPPLIER_RETURN : sends
+  SUPPLIER ||--o{ SUPPLIER_RETURN : handles
+  USER ||--o{ NOTIFICATION : receives
+  USER ||--o{ AUDIT_LOG : triggers
+
+  USER {
+    string id PK
+    string email UK
+    string passwordHash
+    string firstName
+    string lastName
+    UserStatus status
+  }
+  RESOURCE {
+    string id PK
+    string inventoryCode UK
+    string name
+    string category
+    ResourceStatus status
+  }
+  TENDER {
+    string id PK
+    string reference UK
+    string title
+    TenderStatus status
+    datetime deadline
+  }
+  SUPPLIER_OFFER {
+    string id PK
+    decimal amount
+    int proposedDeliveryDays
+    SupplierOfferStatus status
+  }
+  MAINTENANCE_TICKET {
+    string id PK
+    MaintenancePriority priority
+    MaintenanceTicketStatus status
+  }

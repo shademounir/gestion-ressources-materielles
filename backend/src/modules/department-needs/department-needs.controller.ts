@@ -1,7 +1,11 @@
 import {
   Body,
   Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -12,7 +16,9 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -23,12 +29,31 @@ import { AuthenticatedRequest } from '../auth/interfaces/authenticated-user.inte
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { DepartmentNeedsService } from './department-needs.service';
 import { CreateDepartmentNeedDto } from './dto/create-department-need.dto';
+import {
+  DepartmentNeedDetailResponseDto,
+  DepartmentNeedListResponseDto,
+} from './dto/department-need-read-response.dto';
 import { DepartmentNeedResponseDto } from './dto/department-need-response.dto';
+import { ListDepartmentNeedsQueryDto } from './dto/list-department-needs-query.dto';
 
 @ApiTags('department-needs')
 @Controller('department-needs')
 export class DepartmentNeedsController {
   constructor(private readonly departmentNeedsService: DepartmentNeedsService) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lister les besoins departementaux' })
+  @ApiOkResponse({ type: DepartmentNeedListResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour lister les besoins' })
+  list(
+    @Query() query: ListDepartmentNeedsQueryDto,
+  ): Promise<DepartmentNeedListResponseDto> {
+    return this.departmentNeedsService.listDepartmentNeeds(query);
+  }
 
   @Post()
   @ApiBearerAuth()
@@ -54,5 +79,21 @@ export class DepartmentNeedsController {
       createDepartmentNeedDto,
       createdById,
     );
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Consulter un besoin departemental' })
+  @ApiParam({ name: 'id', description: 'Identifiant UUID du besoin' })
+  @ApiOkResponse({ type: DepartmentNeedDetailResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT absent, invalide ou expire' })
+  @ApiForbiddenResponse({ description: 'Role insuffisant pour consulter le besoin' })
+  @ApiNotFoundResponse({ description: 'Besoin introuvable' })
+  getById(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) needId: string,
+  ): Promise<DepartmentNeedDetailResponseDto> {
+    return this.departmentNeedsService.getDepartmentNeedById(needId);
   }
 }

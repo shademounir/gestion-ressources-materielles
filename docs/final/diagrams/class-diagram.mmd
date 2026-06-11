@@ -1,0 +1,97 @@
+classDiagram
+  class User {
+    +String id
+    +String email
+    +String firstName
+    +String lastName
+    +UserStatus status
+  }
+  class Role {
+    +String id
+    +RoleName name
+  }
+  class Department {
+    +String id
+    +String name
+    +DepartmentStatus status
+  }
+  class Need {
+    +String id
+    +String title
+    +NeedPriority priority
+    +NeedStatus status
+  }
+  class NeedItem {
+    +String designation
+    +Int quantity
+  }
+  class Tender {
+    +String reference
+    +TenderStatus status
+    +DateTime deadline
+  }
+  class SupplierOffer {
+    +Decimal amount
+    +Int proposedDeliveryDays
+    +SupplierOfferStatus status
+  }
+  class Supplier {
+    +String name
+    +SupplierStatus status
+  }
+  class Resource {
+    +String inventoryCode
+    +String name
+    +String category
+    +ResourceStatus status
+  }
+  class ResourceAssignment {
+    +DateTime assignedAt
+    +DateTime returnedAt
+    +ResourceAssignmentStatus status
+  }
+  class MaintenanceTicket {
+    +MaintenancePriority priority
+    +MaintenanceTicketStatus status
+  }
+  class MaintenanceReport {
+    +String diagnosis
+    +MaintenanceSeverity severity
+  }
+  class MaintenanceIntervention {
+    +String technicianName
+    +DateTime startedAt
+  }
+  class SupplierReturn {
+    +SupplierReturnStatus status
+    +DateTime sentAt
+  }
+  class Notification {
+    +String title
+    +DateTime readAt
+  }
+  class AuditLog {
+    +AuditAction action
+    +AuditEntityType entityType
+  }
+
+  Role "1" --> "0..*" User
+  Department "1" --> "0..*" User
+  Department "1" --> "0..*" Need
+  User "1" --> "0..*" Need : createdBy
+  Need "1" --> "1..*" NeedItem
+  Need "1" --> "0..*" Tender
+  User "1" --> "0..*" Tender : createdBy
+  Tender "1" --> "0..*" SupplierOffer
+  Supplier "1" --> "0..*" SupplierOffer
+  Supplier "1" --> "0..*" Resource
+  Resource "1" --> "0..*" ResourceAssignment
+  User "1" --> "0..*" ResourceAssignment
+  Resource "1" --> "0..*" MaintenanceTicket
+  User "1" --> "0..*" MaintenanceTicket : reportedBy
+  MaintenanceTicket "1" --> "0..1" MaintenanceReport
+  MaintenanceTicket "1" --> "0..*" MaintenanceIntervention
+  MaintenanceTicket "1" --> "0..*" SupplierReturn
+  Supplier "1" --> "0..*" SupplierReturn
+  User "1" --> "0..*" Notification
+  User "0..1" --> "0..*" AuditLog

@@ -1,0 +1,33 @@
+flowchart TB
+  subgraph Client[Poste utilisateur]
+    Browser[Navigateur]
+    React[Frontend React + Vite]
+  end
+  subgraph API[Backend NestJS]
+    Controllers[Controllers REST]
+    Guards[JWT Guard + RBAC]
+    Services[Services metier]
+    DTO[DTO validation + Swagger]
+    Prisma[Prisma ORM]
+  end
+  subgraph Data[Donnees]
+    Postgres[(PostgreSQL)]
+  end
+  subgraph DevSecOps[DevSecOps]
+    GitHub[GitHub Repository]
+    Actions[GitHub Actions]
+    Sonar[SonarCloud]
+    CodeQL[CodeQL]
+    Semgrep[Semgrep]
+  end
+  Browser --> React
+  React -->|HTTP REST /api/v1| Controllers
+  Controllers --> Guards
+  Controllers --> DTO
+  Controllers --> Services
+  Services --> Prisma
+  Prisma --> Postgres
+  GitHub --> Actions
+  Actions --> Sonar
+  Actions --> CodeQL
+  Actions --> Semgrep

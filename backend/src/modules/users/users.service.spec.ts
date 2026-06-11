@@ -3,12 +3,16 @@ import { RoleName, UserStatus } from '@prisma/client';
 import { compare } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AssignUserRole } from './dto/assign-user-role.dto';
 import { CreateUserRole } from './dto/create-user.dto';
 import { UsersService } from './users.service';
 
 type PrismaMock = {
+  $transaction: jest.Mock;
   user: {
+    count: jest.Mock;
+    findMany: jest.Mock;
     findUnique: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -32,13 +36,23 @@ type UserCreateMockArgs = {
   };
 };
 
+type AuditLogsServiceMock = {
+  logUserCreated: jest.Mock;
+  logUserRoleUpdated: jest.Mock;
+  logUserDeactivated: jest.Mock;
+};
+
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: PrismaMock;
+  let auditLogsService: AuditLogsServiceMock;
 
   beforeEach(() => {
     prisma = {
+      $transaction: jest.fn(),
       user: {
+        count: jest.fn(),
+        findMany: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -51,7 +65,161 @@ describe('UsersService', () => {
       },
     };
 
-    service = new UsersService(prisma as unknown as PrismaService);
+    auditLogsService = {
+      logUserCreated: jest.fn(),
+      logUserRoleUpdated: jest.fn(),
+      logUserDeactivated: jest.fn(),
+    };
+
+    service = new UsersService(
+      prisma as unknown as PrismaService,
+      auditLogsService as unknown as AuditLogsService,
+    );
+  });
+
+  it('lists users with pagination, search, role and status filters', async () => {
+    const user = {
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-05-13T15:30:00.000Z'),
+      role: {
+        name: RoleName.USER,
+      },
+      department: null,
+    };
+    prisma.user.findMany.mockResolvedValue([user]);
+    prisma.user.count.mockResolvedValue(1);
+    prisma.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
+      Promise.all(operations),
+    );
+
+    const result = await service.listUsers({
+      page: 2,
+      limit: 5,
+      search: ' amina ',
+      role: RoleName.USER,
+      status: UserStatus.ACTIVE,
+    });
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+        role: { name: RoleName.USER },
+        OR: [
+          { email: { contains: 'amina', mode: 'insensitive' } },
+          { firstName: { contains: 'amina', mode: 'insensitive' } },
+          { lastName: { contains: 'amina', mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        role: true,
+        department: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: 5,
+      take: 5,
+    });
+    expect(prisma.user.count).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+        role: { name: RoleName.USER },
+        OR: [
+          { email: { contains: 'amina', mode: 'insensitive' } },
+          { firstName: { contains: 'amina', mode: 'insensitive' } },
+          { lastName: { contains: 'amina', mode: 'insensitive' } },
+        ],
+      },
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'user-1',
+          firstName: 'Amina',
+          lastName: 'Bennani',
+          email: 'amina.bennani@faculty.test',
+          role: UserRole.USER,
+          isActive: true,
+          department: null,
+          createdAt: '2026-05-13T15:30:00.000Z',
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 5,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+  });
+
+  it('returns a user detail without sensitive data', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      passwordHash: 'hash-not-returned',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-05-13T15:30:00.000Z'),
+      deletedAt: null,
+      role: {
+        name: RoleName.USER,
+      },
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+    });
+
+    const result = await service.getUserById('user-1');
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      include: {
+        role: true,
+        department: true,
+      },
+    });
+    expect(result).toEqual({
+      id: 'user-1',
+      firstName: 'Amina',
+      lastName: 'Bennani',
+      email: 'amina.bennani@faculty.test',
+      role: UserRole.USER,
+      isActive: true,
+      department: {
+        id: 'department-1',
+        name: 'Informatique',
+      },
+      createdAt: '2026-05-13T15:30:00.000Z',
+    });
+    expect(result).not.toHaveProperty('passwordHash');
+  });
+
+  it('rejects user detail when the user does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.getUserById('missing-user')).rejects.toThrow(
+      new NotFoundException('Utilisateur introuvable.'),
+    );
+  });
+
+  it('rejects user detail when the user is logically deleted', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: new Date('2026-05-13T15:30:00.000Z'),
+    });
+
+    await expect(service.getUserById('user-1')).rejects.toThrow(
+      new NotFoundException('Utilisateur introuvable.'),
+    );
   });
 
   it('creates an active user with a hashed password and initial role', async () => {
@@ -72,14 +240,17 @@ describe('UsersService', () => {
       },
     }));
 
-    const result = await service.createUser({
-      firstName: ' Amina ',
-      lastName: ' Bennani ',
-      email: ' Amina.Bennani@Faculty.Test ',
-      password: 'ChangeMe123!',
-      role: CreateUserRole.USER,
-      isActive: true,
-    });
+    const result = await service.createUser(
+      {
+        firstName: ' Amina ',
+        lastName: ' Bennani ',
+        email: ' Amina.Bennani@Faculty.Test ',
+        password: 'ChangeMe123!',
+        role: CreateUserRole.USER,
+        isActive: true,
+      },
+      'admin-1',
+    );
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { email: 'amina.bennani@faculty.test' },
@@ -97,6 +268,10 @@ describe('UsersService', () => {
     await expect(compare('ChangeMe123!', createCall.data.passwordHash)).resolves.toBe(true);
     expect(createCall.data.status).toBe(UserStatus.ACTIVE);
     expect(createCall.data.roleId).toBe('role-user');
+    expect(auditLogsService.logUserCreated).toHaveBeenCalledWith(
+      'user-1',
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'user-1',
       firstName: 'Amina',
@@ -177,7 +352,7 @@ describe('UsersService', () => {
       },
     });
 
-    const result = await service.deactivateUser('user-1');
+    const result = await service.deactivateUser('user-1', 'admin-1');
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
@@ -188,6 +363,10 @@ describe('UsersService', () => {
       data: { status: UserStatus.INACTIVE },
       include: { role: true },
     });
+    expect(auditLogsService.logUserDeactivated).toHaveBeenCalledWith(
+      'user-1',
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'user-1',
       firstName: 'Amina',
@@ -241,9 +420,13 @@ describe('UsersService', () => {
       },
     });
 
-    const result = await service.assignUserRole('user-1', {
-      role: AssignUserRole.MANAGER,
-    });
+    const result = await service.assignUserRole(
+      'user-1',
+      {
+        role: AssignUserRole.MANAGER,
+      },
+      'admin-1',
+    );
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
@@ -259,6 +442,11 @@ describe('UsersService', () => {
       data: { roleId: 'role-manager' },
       include: { role: true },
     });
+    expect(auditLogsService.logUserRoleUpdated).toHaveBeenCalledWith(
+      'user-1',
+      RoleName.MANAGER,
+      'admin-1',
+    );
     expect(result).toEqual({
       id: 'user-1',
       firstName: 'Amina',

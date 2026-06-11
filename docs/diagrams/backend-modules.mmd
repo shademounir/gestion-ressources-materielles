@@ -1,0 +1,53 @@
+flowchart TB
+    AppModule["AppModule"]
+    Config["ConfigModule"]
+    Prisma["PrismaModule"]
+    Health["HealthModule"]
+    Auth["AuthModule"]
+    Users["UsersModule"]
+    Departments["DepartmentsModule"]
+    Needs["DepartmentNeedsModule"]
+    Resources["ResourcesModule"]
+    Assignments["ResourceAssignmentsModule"]
+    Maintenance["MaintenanceModule"]
+    Suppliers["SuppliersModule"]
+    Tenders["TendersModule"]
+    Offers["SupplierOffersModule"]
+    Notifications["NotificationsModule"]
+    Audit["AuditLogsModule"]
+
+    AppModule --> Config
+    AppModule --> Prisma
+    AppModule --> Health
+    AppModule --> Auth
+    AppModule --> Users
+    AppModule --> Departments
+    AppModule --> Needs
+    AppModule --> Resources
+    AppModule --> Assignments
+    AppModule --> Maintenance
+    AppModule --> Suppliers
+    AppModule --> Tenders
+    AppModule --> Offers
+    AppModule --> Notifications
+    AppModule --> Audit
+
+    Auth --> Users
+    Users --> Prisma
+    Departments --> Prisma
+    Needs --> Prisma
+    Resources --> Prisma
+    Assignments --> Prisma
+    Maintenance --> Prisma
+    Suppliers --> Prisma
+    Tenders --> Prisma
+    Offers --> Prisma
+    Notifications --> Prisma
+    Audit --> Prisma
+
+    Resources --> Audit
+    Assignments --> Audit
+    Assignments --> Notifications
+    Maintenance --> Audit
+    Maintenance --> Notifications
+    Users --> Audit

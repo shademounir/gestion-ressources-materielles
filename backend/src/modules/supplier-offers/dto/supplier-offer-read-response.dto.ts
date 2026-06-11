@@ -1,0 +1,102 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SupplierOfferStatus, SupplierStatus, TenderStatus } from '@prisma/client';
+import { SupplierOfferResponseDto } from './supplier-offer-response.dto';
+
+export class SupplierOfferListItemResponseDto extends SupplierOfferResponseDto {}
+
+export class SupplierOfferListMetaResponseDto {
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 20 })
+  limit!: number;
+
+  @ApiProperty({ example: 42 })
+  total!: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages!: number;
+}
+
+export class SupplierOfferListResponseDto {
+  @ApiProperty({ type: [SupplierOfferListItemResponseDto] })
+  data!: SupplierOfferListItemResponseDto[];
+
+  @ApiProperty({ type: SupplierOfferListMetaResponseDto })
+  meta!: SupplierOfferListMetaResponseDto;
+}
+
+export class SupplierOfferTenderResponseDto {
+  @ApiProperty({ example: '32746c41-d6b8-45f1-9354-ad769e6ba7f0' })
+  id!: string;
+
+  @ApiProperty({ example: 'AO-20260602-0001' })
+  reference!: string;
+
+  @ApiProperty({ example: 'Appel d offres - Equipement salle informatique' })
+  title!: string;
+
+  @ApiProperty({ enum: TenderStatus, example: TenderStatus.PUBLISHED })
+  status!: TenderStatus;
+
+  @ApiProperty({ example: '2026-07-15T12:00:00.000Z' })
+  deadline!: string;
+}
+
+export class SupplierOfferSupplierResponseDto {
+  @ApiProperty({ example: '86dbd4f8-3850-46b6-9c1a-f3fc3b9339a4' })
+  id!: string;
+
+  @ApiProperty({ example: 'Tech Solutions Maroc' })
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'contact@techsolutions.test', nullable: true })
+  contactEmail!: string | null;
+
+  @ApiPropertyOptional({ example: '+212 522 000 000', nullable: true })
+  phone!: string | null;
+
+  @ApiProperty({ enum: SupplierStatus, example: SupplierStatus.ACTIVE })
+  status!: SupplierStatus;
+}
+
+export class SupplierOfferDetailResponseDto {
+  @ApiProperty({ example: '7d3402e2-fb11-4261-8e33-56e0ea5e9c5e' })
+  id!: string;
+
+  @ApiProperty({ example: '32746c41-d6b8-45f1-9354-ad769e6ba7f0' })
+  tenderId!: string;
+
+  @ApiProperty({ example: '86dbd4f8-3850-46b6-9c1a-f3fc3b9339a4' })
+  supplierId!: string;
+
+  @ApiProperty({ example: 125000 })
+  amount!: number;
+
+  @ApiProperty({ example: 30 })
+  proposedDeliveryDays!: number;
+
+  @ApiPropertyOptional({ example: 'Livraison possible en deux lots.', nullable: true })
+  comment!: string | null;
+
+  @ApiProperty({ enum: SupplierOfferStatus, example: SupplierOfferStatus.SUBMITTED })
+  status!: SupplierOfferStatus;
+
+  @ApiProperty({ example: '2026-06-02T14:00:00.000Z' })
+  submittedAt!: string;
+
+  @ApiPropertyOptional({ example: '2026-06-02T15:00:00.000Z', nullable: true })
+  selectedAt!: string | null;
+
+  @ApiProperty({ example: '2026-06-02T14:00:00.000Z' })
+  createdAt!: string;
+
+  @ApiProperty({ example: '2026-06-02T14:00:00.000Z' })
+  updatedAt!: string;
+
+  @ApiProperty({ type: SupplierOfferTenderResponseDto })
+  tender!: SupplierOfferTenderResponseDto;
+
+  @ApiProperty({ type: SupplierOfferSupplierResponseDto })
+  supplier!: SupplierOfferSupplierResponseDto;
+}
