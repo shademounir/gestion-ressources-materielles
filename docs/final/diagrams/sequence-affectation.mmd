@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  actor M as Admin ou Manager
+  participant F as Frontend AssignmentsPage
+  participant C as ResourceAssignmentsController
+  participant S as ResourceAssignmentsService
+  participant N as NotificationsService
+  participant A as AuditLogsService
+  participant P as Prisma
+  participant DB as PostgreSQL
+
+  M->>F: Choisit ressource disponible et utilisateur actif
+  F->>C: POST /api/v1/resource-assignments
+  C->>S: assignResource(dto, currentUser)
+  S->>P: transaction
+  P->>DB: verifier Resource AVAILABLE
+  P->>DB: verifier User ACTIVE
+  P->>DB: INSERT ResourceAssignment ACTIVE
+  P->>DB: UPDATE Resource status ASSIGNED
+  DB-->>P: transaction validee
+  S->>N: notifier utilisateur
+  S->>A: audit RESOURCE_ASSIGNED
+  S-->>C: AssignmentResponseDto
+  C-->>F: 201 Created
+  F-->>M: affectation confirmee
