@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    actor Manager as ADMIN ou MANAGER
+    participant UI as MaintenancePage
+    participant API as MaintenanceController
+    participant Service as MaintenanceService
+    participant Prisma as PrismaService
+    participant Audit as AuditLogsService
+    participant Notif as NotificationsService
+
+    Manager->>UI: Signale une panne
+    UI->>API: POST /api/v1/maintenance-tickets
+    API->>Service: reportFailure(dto, currentUser)
+    Service->>Prisma: Transaction create ticket OPEN
+    Service->>Prisma: Transaction update Resource UNDER_MAINTENANCE
+    Service->>Audit: MAINTENANCE_REPORTED
+    Service->>Notif: MAINTENANCE_REPORTED
+    API-->>UI: Ticket cree
+
+    Manager->>UI: Redige un constat
+    UI->>API: POST /api/v1/maintenance-tickets/:id/report
+    API->>Service: createReport(id, dto, currentUser)
+    Service->>Prisma: Create MaintenanceReport unique per ticket
+    Service->>Audit: MAINTENANCE_REPORT_CREATED
+    Service->>Notif: MAINTENANCE_REPORT_CREATED
+    API-->>UI: Constat cree
+
+    Manager->>UI: Suit une intervention
+    UI->>API: POST /api/v1/maintenance-tickets/:id/intervention
+    API->>Service: createIntervention(id, dto)
+    Service->>Prisma: Create MaintenanceIntervention
+    Service->>Prisma: Update Ticket IN_PROGRESS if needed
+    Service->>Audit: MAINTENANCE_INTERVENTION_CREATED
+    Service->>Notif: MAINTENANCE_INTERVENTION_CREATED
+    API-->>UI: Intervention creee
+
+    Manager->>UI: Declare un retour fournisseur
+    UI->>API: POST /api/v1/maintenance-tickets/:id/supplier-return
+    API->>Service: createSupplierReturn(id, dto)
+    Service->>Prisma: Create SupplierReturn SENT_TO_SUPPLIER
+    Service->>Audit: SUPPLIER_RETURN_CREATED
+    Service->>Notif: SUPPLIER_RETURN_CREATED
+    API-->>UI: Retour fournisseur cree

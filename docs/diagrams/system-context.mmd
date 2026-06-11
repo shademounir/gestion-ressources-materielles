@@ -1,0 +1,34 @@
+flowchart LR
+    Admin["Administrateur"]
+    Manager["Responsable ressources"]
+    User["Utilisateur interne"]
+    Tech["Technicien maintenance"]
+    Supplier["Fournisseur"]
+
+    App["Gestion des Ressources Materielles"]
+    Browser["Frontend React Vite"]
+    Api["Backend NestJS REST API"]
+    Db["PostgreSQL"]
+    Jira["Jira SCRUM"]
+    GitHub["GitHub Repository"]
+    Actions["GitHub Actions"]
+    Sonar["SonarCloud"]
+    CodeQL["CodeQL"]
+    Semgrep["Semgrep"]
+
+    Admin --> Browser
+    Manager --> Browser
+    User --> Browser
+    Tech --> Browser
+    Supplier --> Browser
+
+    Browser --> App
+    App --> Api
+    Api --> Db
+
+    Jira --> GitHub
+    GitHub --> Actions
+    Actions --> Sonar
+    Actions --> CodeQL
+    Actions --> Semgrep
+    Actions --> App

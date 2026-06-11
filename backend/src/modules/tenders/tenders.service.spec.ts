@@ -1,6 +1,13 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { TenderStatus } from '@prisma/client';
+import {
+  NeedPriority,
+  NeedStatus,
+  SupplierOfferStatus,
+  SupplierStatus,
+  TenderStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SupplierOffersService } from '../supplier-offers/supplier-offers.service';
 import { TendersService } from './tenders.service';
 
 type PrismaMock = {
@@ -8,7 +15,9 @@ type PrismaMock = {
     findUnique: jest.Mock;
   };
   tender: {
+    count: jest.Mock;
     findFirst: jest.Mock;
+    findMany: jest.Mock;
     findUnique: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -18,6 +27,9 @@ type PrismaMock = {
 describe('TendersService', () => {
   let service: TendersService;
   let prisma: PrismaMock;
+  let supplierOffersService: {
+    listSupplierOffersForTender: jest.Mock;
+  };
 
   beforeEach(() => {
     prisma = {
@@ -25,13 +37,97 @@ describe('TendersService', () => {
         findUnique: jest.fn(),
       },
       tender: {
+        count: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
     };
-    service = new TendersService(prisma as unknown as PrismaService);
+    supplierOffersService = {
+      listSupplierOffersForTender: jest.fn(),
+    };
+    service = new TendersService(
+      prisma as unknown as PrismaService,
+      supplierOffersService as unknown as SupplierOffersService,
+    );
+  });
+
+  it('lists tenders with pagination, search and status filter', async () => {
+    prisma.tender.count.mockResolvedValue(1);
+    prisma.tender.findMany.mockResolvedValue([
+      {
+        id: 'tender-1',
+        reference: 'AO-20260602-0001',
+        title: 'Appel d offres - Equipement salle informatique',
+        description: 'Acquisition de postes informatiques pour la salle A12.',
+        status: TenderStatus.PUBLISHED,
+        deadline: new Date('2026-07-15T12:00:00.000Z'),
+        publishedAt: new Date('2026-06-02T13:00:00.000Z'),
+        awardedAt: null,
+        needId: 'need-1',
+        createdById: 'user-1',
+        createdAt: new Date('2026-06-02T12:00:00.000Z'),
+        updatedAt: new Date('2026-06-02T13:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.listTenders({
+      page: 2,
+      limit: 8,
+      search: ' AO-20260602 ',
+      status: TenderStatus.PUBLISHED,
+    });
+
+    const expectedWhere = {
+      status: TenderStatus.PUBLISHED,
+      OR: [
+        {
+          reference: {
+            contains: 'AO-20260602',
+            mode: 'insensitive',
+          },
+        },
+        {
+          title: {
+            contains: 'AO-20260602',
+            mode: 'insensitive',
+          },
+        },
+      ],
+    };
+
+    expect(prisma.tender.count).toHaveBeenCalledWith({ where: expectedWhere });
+    expect(prisma.tender.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      orderBy: { createdAt: 'desc' },
+      skip: 8,
+      take: 8,
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'tender-1',
+          reference: 'AO-20260602-0001',
+          title: 'Appel d offres - Equipement salle informatique',
+          status: TenderStatus.PUBLISHED,
+          deadline: '2026-07-15T12:00:00.000Z',
+          publishedAt: '2026-06-02T13:00:00.000Z',
+          awardedAt: null,
+          needId: 'need-1',
+          createdById: 'user-1',
+          createdAt: '2026-06-02T12:00:00.000Z',
+          updatedAt: '2026-06-02T13:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 8,
+        total: 1,
+        totalPages: 1,
+      },
+    });
   });
 
   it('creates a draft tender from an existing need with a unique provided reference', async () => {
@@ -216,6 +312,214 @@ describe('TendersService', () => {
       ),
     ).rejects.toThrow(new ConflictException('Reference appel d offres deja utilisee.'));
     expect(prisma.tender.create).not.toHaveBeenCalled();
+  });
+
+  it('returns tender detail with need, creator and supplier offers', async () => {
+    prisma.tender.findUnique.mockResolvedValue({
+      id: 'tender-1',
+      reference: 'AO-20260602-0001',
+      title: 'Appel d offres - Equipement salle informatique',
+      description: 'Acquisition de postes informatiques pour la salle A12.',
+      status: TenderStatus.PUBLISHED,
+      deadline: new Date('2026-07-15T12:00:00.000Z'),
+      publishedAt: new Date('2026-06-02T13:00:00.000Z'),
+      awardedAt: null,
+      needId: 'need-1',
+      createdById: 'user-1',
+      createdAt: new Date('2026-06-02T12:00:00.000Z'),
+      updatedAt: new Date('2026-06-02T13:00:00.000Z'),
+      need: {
+        id: 'need-1',
+        title: 'Equipement salle informatique',
+        priority: NeedPriority.HIGH,
+        status: NeedStatus.SUBMITTED,
+        departmentId: 'department-1',
+        createdById: 'user-1',
+        createdAt: new Date('2026-06-02T10:00:00.000Z'),
+      },
+      createdBy: {
+        id: 'user-1',
+        firstName: 'Demo',
+        lastName: 'Manager',
+        email: 'manager@grm.local',
+      },
+      offers: [
+        {
+          id: 'offer-1',
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 125000,
+          proposedDeliveryDays: 30,
+          comment: 'Livraison possible en deux lots.',
+          status: SupplierOfferStatus.SUBMITTED,
+          submittedAt: new Date('2026-06-02T14:00:00.000Z'),
+          selectedAt: null,
+          createdAt: new Date('2026-06-02T14:00:00.000Z'),
+          updatedAt: new Date('2026-06-02T14:00:00.000Z'),
+          supplier: {
+            id: 'supplier-1',
+            name: 'Tech Solutions Maroc',
+            contactEmail: 'contact@techsolutions.test',
+            status: SupplierStatus.ACTIVE,
+          },
+        },
+      ],
+    });
+
+    const result = await service.getTenderById('tender-1');
+
+    expect(prisma.tender.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tender-1' },
+      include: {
+        need: {
+          select: {
+            id: true,
+            title: true,
+            priority: true,
+            status: true,
+            departmentId: true,
+            createdById: true,
+            createdAt: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        offers: {
+          orderBy: { submittedAt: 'desc' },
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                name: true,
+                contactEmail: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      id: 'tender-1',
+      reference: 'AO-20260602-0001',
+      title: 'Appel d offres - Equipement salle informatique',
+      description: 'Acquisition de postes informatiques pour la salle A12.',
+      status: TenderStatus.PUBLISHED,
+      deadline: '2026-07-15T12:00:00.000Z',
+      publishedAt: '2026-06-02T13:00:00.000Z',
+      awardedAt: null,
+      needId: 'need-1',
+      createdById: 'user-1',
+      createdAt: '2026-06-02T12:00:00.000Z',
+      updatedAt: '2026-06-02T13:00:00.000Z',
+      need: {
+        id: 'need-1',
+        title: 'Equipement salle informatique',
+        priority: NeedPriority.HIGH,
+        status: NeedStatus.SUBMITTED,
+        departmentId: 'department-1',
+        createdById: 'user-1',
+        createdAt: '2026-06-02T10:00:00.000Z',
+      },
+      createdBy: {
+        id: 'user-1',
+        firstName: 'Demo',
+        lastName: 'Manager',
+        email: 'manager@grm.local',
+      },
+      offers: [
+        {
+          id: 'offer-1',
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 125000,
+          proposedDeliveryDays: 30,
+          comment: 'Livraison possible en deux lots.',
+          status: SupplierOfferStatus.SUBMITTED,
+          submittedAt: '2026-06-02T14:00:00.000Z',
+          selectedAt: null,
+          createdAt: '2026-06-02T14:00:00.000Z',
+          updatedAt: '2026-06-02T14:00:00.000Z',
+          supplier: {
+            id: 'supplier-1',
+            name: 'Tech Solutions Maroc',
+            contactEmail: 'contact@techsolutions.test',
+            status: SupplierStatus.ACTIVE,
+          },
+        },
+      ],
+    });
+  });
+
+  it('rejects tender detail retrieval when tender does not exist', async () => {
+    prisma.tender.findUnique.mockResolvedValue(null);
+
+    await expect(service.getTenderById('tender-unknown')).rejects.toThrow(
+      new NotFoundException('Appel d offres introuvable.'),
+    );
+  });
+
+  it('lists supplier offers for an existing tender', async () => {
+    const offerList = {
+      data: [
+        {
+          id: 'offer-1',
+          tenderId: 'tender-1',
+          supplierId: 'supplier-1',
+          amount: 125000,
+          proposedDeliveryDays: 30,
+          comment: 'Livraison possible en deux lots.',
+          status: SupplierOfferStatus.SUBMITTED,
+          submittedAt: '2026-06-02T14:00:00.000Z',
+          selectedAt: null,
+          createdAt: '2026-06-02T14:00:00.000Z',
+          updatedAt: '2026-06-02T14:00:00.000Z',
+        },
+      ],
+      meta: {
+        page: 1,
+        limit: 8,
+        total: 1,
+        totalPages: 1,
+      },
+    };
+    const query = {
+      page: 1,
+      limit: 8,
+      status: SupplierOfferStatus.SUBMITTED,
+    };
+    prisma.tender.findUnique.mockResolvedValue({ id: 'tender-1' });
+    supplierOffersService.listSupplierOffersForTender.mockResolvedValue(offerList);
+
+    const result = await service.listTenderOffers('tender-1', query);
+
+    expect(prisma.tender.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tender-1' },
+      select: { id: true },
+    });
+    expect(supplierOffersService.listSupplierOffersForTender).toHaveBeenCalledWith(
+      'tender-1',
+      query,
+    );
+    expect(result).toEqual(offerList);
+  });
+
+  it('rejects supplier offer listing when tender does not exist', async () => {
+    prisma.tender.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.listTenderOffers('tender-unknown', {
+        page: 1,
+        limit: 8,
+      }),
+    ).rejects.toThrow(new NotFoundException('Appel d offres introuvable.'));
+    expect(supplierOffersService.listSupplierOffersForTender).not.toHaveBeenCalled();
   });
 
   it('publishes a draft tender with a future deadline', async () => {

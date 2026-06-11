@@ -1,0 +1,21 @@
+flowchart TB
+  Dev[Developpeur / Soutenance]
+  Browser[Navigateur local]
+  Frontend[Vite dev server :5173]
+  Backend[NestJS API :3000]
+  Docker[Docker Desktop]
+  DB[(grm-postgres :5432)]
+  Volume[(postgres_data volume)]
+  Repo[GitHub]
+  CI[GitHub Actions]
+  Quality[SonarCloud + CodeQL + Semgrep]
+
+  Dev --> Browser
+  Browser --> Frontend
+  Frontend --> Backend
+  Backend --> DB
+  Docker --> DB
+  DB --> Volume
+  Dev --> Repo
+  Repo --> CI
+  CI --> Quality

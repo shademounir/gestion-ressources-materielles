@@ -42,6 +42,12 @@ describe('RolesGuard', () => {
     expect(guard.canActivate(createContext([UserRole.MANAGER]) as never)).toBe(true);
   });
 
+  it('allows ADMIN access when ADMIN and MANAGER are accepted', () => {
+    const guard = createGuard([UserRole.ADMIN, UserRole.MANAGER]);
+
+    expect(guard.canActivate(createContext([UserRole.ADMIN]) as never)).toBe(true);
+  });
+
   it('denies access when the authenticated user has an insufficient role', () => {
     const guard = createGuard([UserRole.ADMIN]);
 
@@ -54,6 +60,14 @@ describe('RolesGuard', () => {
     const guard = createGuard([UserRole.USER]);
 
     expect(() => guard.canActivate(createContext() as never)).toThrow(
+      new ForbiddenException('Acces refuse: role insuffisant.'),
+    );
+  });
+
+  it('denies USER access when only ADMIN and MANAGER are accepted', () => {
+    const guard = createGuard([UserRole.ADMIN, UserRole.MANAGER]);
+
+    expect(() => guard.canActivate(createContext([UserRole.USER]) as never)).toThrow(
       new ForbiddenException('Acces refuse: role insuffisant.'),
     );
   });

@@ -4,18 +4,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UserRole } from '../../shared/enums/user-role.enum';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AssignUserDepartmentDto } from './dto/assign-user-department.dto';
 import { AssignUserRole, AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
+  ) {}
 
   getFoundationStatus() {
     return {
@@ -25,7 +31,72 @@ export class UsersService {
     };
   }
 
-  async createUser(createUserDto: CreateUserDto): Promise<UserResponseDto> {
+  async listUsers(query: ListUsersQueryDto): Promise<UserListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = query.search?.trim();
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.role ? { role: { name: query.role } } : {}),
+      ...(search
+        ? {
+            OR: [
+              { email: { contains: search, mode: 'insensitive' } },
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        include: {
+          role: true,
+          department: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: users.map((user) => this.toUserResponse(user)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getUserById(id: string): Promise<UserResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        role: true,
+        department: true,
+      },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('Utilisateur introuvable.');
+    }
+
+    return this.toUserResponse(user);
+  }
+
+  async createUser(
+    createUserDto: CreateUserDto,
+    actorUserId?: string | null,
+  ): Promise<UserResponseDto> {
     const email = createUserDto.email.trim().toLowerCase();
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -58,10 +129,15 @@ export class UsersService {
       },
     });
 
+    await this.auditLogsService.logUserCreated(createdUser.id, actorUserId);
+
     return this.toUserResponse(createdUser);
   }
 
-  async deactivateUser(id: string): Promise<UserResponseDto> {
+  async deactivateUser(
+    id: string,
+    actorUserId?: string | null,
+  ): Promise<UserResponseDto> {
     const existingUser = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true, deletedAt: true },
@@ -81,12 +157,18 @@ export class UsersService {
       },
     });
 
+    await this.auditLogsService.logUserDeactivated(
+      deactivatedUser.id,
+      actorUserId,
+    );
+
     return this.toUserResponse(deactivatedUser);
   }
 
   async assignUserRole(
     id: string,
     assignUserRoleDto: AssignUserRoleDto,
+    actorUserId?: string | null,
   ): Promise<UserResponseDto> {
     if (!Object.values(AssignUserRole).includes(assignUserRoleDto.role)) {
       throw new BadRequestException('Role utilisateur invalide.');
@@ -117,6 +199,12 @@ export class UsersService {
         role: true,
       },
     });
+
+    await this.auditLogsService.logUserRoleUpdated(
+      updatedUser.id,
+      updatedUser.role.name,
+      actorUserId,
+    );
 
     return this.toUserResponse(updatedUser);
   }
